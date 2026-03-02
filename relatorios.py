@@ -107,6 +107,7 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
 
     # ===== DESPESAS DETALHADAS =====
     despesas = df[df["Tipo"]=="Saída"][["Data","Pago para / Recebido de","Descricao","Categoria","Valor"]]
+    totais = despesas.groupby("Categoria")["Valor"].sum().reset_index()
     totais["Data"] = ""
     totais["Pago para / Recebido de"] = ""
     totais["Descricao"] = "TOTAL " + totais["Categoria"]
