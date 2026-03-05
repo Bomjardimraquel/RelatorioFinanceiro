@@ -111,7 +111,7 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
     totais["Data"] = ""
     totais["Pago para / Recebido de"] = ""
     totais["Descricao"] = "TOTAL " + totais["Categoria"]
-    despesas_detalhadas = despesas.copy()
+    despesas_detalhadas = pd.concat([despesas, totais], ignore_index=True)
     despesas_detalhadas = despesas_detalhadas.rename(columns={
         "Data":"DATA",
         "Pago para / Recebido de":"PAGO PARA",
