@@ -53,6 +53,12 @@ st.markdown('<div class="upload-box">📂 Arraste e solte seu arquivo aqui</div>
 uploaded_file = st.file_uploader("Selecione o arquivo (.xlsx)", type="xlsx")
 st.info("ℹ️ Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
+MESES = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
+
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
@@ -75,9 +81,17 @@ if uploaded_file is not None:
                     f"Verifique se o arquivo está correto ou avise o suporte."
                 )
 
+            try:
+                primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
+                mes_nome = MESES[primeira_data.month]
+                ano = primeira_data.year
+                nome_arquivo = f"Relatorio_{mes_nome}_{ano}.xlsx"
+            except Exception:
+                nome_arquivo = "Relatorio_Completo.xlsx"
+
             dre_operacional, destinacao, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df)
 
-            with pd.ExcelWriter("Relatorio_Completo.xlsx", engine="xlsxwriter") as writer:
+            with pd.ExcelWriter(nome_arquivo, engine="xlsxwriter") as writer:
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False)
                 destinacao.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+3, index=False)
@@ -85,7 +99,23 @@ if uploaded_file is not None:
                 conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False)
-                workbook  = writer.book
+
+                workbook = writer.book
+
+                moeda_format = workbook.add_format({"num_format": "R$ #,##0.00"})
+
+                ws_dre = writer.sheets["DRE_Operacional"]
+                ws_dre.set_column("B:B", 20, moeda_format)
+
+                ws_conc = writer.sheets["Conciliacao"]
+                ws_conc.set_column("B:B", 20, moeda_format)
+
+                ws_desp = writer.sheets["Despesas"]
+                ws_desp.set_column("E:E", 20, moeda_format)
+
+                ws_bancos = writer.sheets["Bancos"]
+                ws_bancos.set_column("B:D", 20, moeda_format)
+
                 worksheet = workbook.add_worksheet("Graficos")
                 aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despesas_detalhadas, conciliacao, bancos_pivot)
                 criar_graficos(workbook, worksheet, df, despesas_detalhadas, dre_operacional, destinacao, resumo, writer)
@@ -93,14 +123,13 @@ if uploaded_file is not None:
             st.success("✅ Relatório gerado com sucesso!")
             st.download_button(
                 label="Baixar Relatório",
-                data=open("Relatorio_Completo.xlsx", "rb"),
-                file_name="Relatorio_Completo.xlsx",
+                data=open(nome_arquivo, "rb"),
+                file_name=nome_arquivo,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
         except Exception as e:
             st.error("❌ O arquivo enviado não está no formato esperado. Verifique se é o relatório do Astrea em .xlsx.")
-
 
 st.markdown("<hr>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;color:#888;'>Desenvolvido por Raquel • 2026</p>", unsafe_allow_html=True)
