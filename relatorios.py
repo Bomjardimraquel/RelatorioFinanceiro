@@ -4,20 +4,23 @@ from funcoes import soma, soma_entradas
 def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
     # ===== MAPA DE CATEGORIAS =====
     mapa_categorias = {
-        "Honorários": "Receita Bruta",
-        "Exito": "Receita Bruta",
-        "Contratado": "Receita Bruta",
-        "Partido": "Receita Bruta",
-        "Sucumbencial": "Receita Bruta",
-        "Compensação/liminar": "Receita Bruta",
-        "Impostos": "Impostos e Deduções",
-        "Despesa bancária": "Impostos e Deduções",
-        "Despesa Fixa": "Despesas Fixas",
-        "Despesa Variável": "Despesas Variáveis",
-        "Repasse": "Repasse",
-        "Distribuição de lucros": "Destinação",
-        "Participação Vinicius Fraga": "Destinação"
-    }
+    "Honorários": "Receita Bruta",
+    "Exito": "Receita Bruta",
+    "Contratado": "Receita Bruta",
+    "Partido": "Receita Bruta",
+    "Sucumbencial": "Receita Bruta",
+    "Compensação/liminar": "Receita Bruta",
+    "Impostos": "Impostos e Deduções",
+    "Despesa bancária": "Impostos e Deduções",
+    "Despesa Fixa": "Despesas Fixas",
+    "Despesa Variável": "Despesas Variáveis",
+    "Repasse": "Repasse",
+    "Participação em contrato": "Repasse",   # ← ADICIONAR
+    "Folha de pagamento": "Folha",           # ← ADICIONAR
+    "Diversos": "Outras Receitas",           # ← ADICIONAR
+    "Distribuição de lucros": "Destinação",
+    "Participação Vinicius Fraga": "Destinação"
+}
 
     # ===== Capturar categorias dinâmicas =====
     categorias_unicas = df["Categoria"].dropna().unique()
@@ -36,12 +39,12 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
     receita_bruta = honorarios + exito + contratado + sucumbenciais + compensacoes
 
     impostos = soma(df, ["Impostos", "Despesa bancária"])
-    folha = df[(df["Descricao"].str.contains("salário", case=False, na=False))]["Valor"].sum()
+    folha = soma(df, ["Folha de pagamento"])
     pro_labore = df[(df["Descricao"].str.contains("pró labore", case=False, na=False))]["Valor"].sum()
     custos_folha = folha + pro_labore
     despesas_fixas = soma(df, ["Despesa Fixa"])
     despesas_variaveis = soma(df, ["Despesa Variável"])
-    repasse_clientes = soma(df, ["Repasse"])
+    repasse_clientes = soma(df, ["Repasse", "Participação em contrato"])
 
     receita_liquida = receita_bruta + impostos
     lucro_bruto = receita_liquida + custos_folha
