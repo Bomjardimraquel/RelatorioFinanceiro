@@ -4,10 +4,8 @@ from relatorios import gerar_relatorios
 from estilos import aplicar_estilos
 from graficos import criar_graficos
 
-# ===== Configuração da página =====
 st.set_page_config(page_title="Relatório Financeiro", page_icon="🗂️", layout="centered")
 
-# ===== Estilos customizados =====
 st.markdown("""
     <style>
     .main {
@@ -44,7 +42,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ===== Banner inicial =====
 st.markdown("""
     <div style="background-color:#4F81BD;padding:20px;border-radius:10px;margin-bottom:20px">
         <h1 style="color:white;text-align:center;">Relatório Financeiro</h1>
@@ -52,17 +49,32 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ===== Upload de arquivo =====
 st.markdown('<div class="upload-box">📂 Arraste e solte seu arquivo aqui</div>', unsafe_allow_html=True)
 uploaded_file = st.file_uploader("Selecione o arquivo (.xlsx)", type="xlsx")
-
 st.info("ℹ️ Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
-# ===== Processamento =====
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
             df = pd.read_excel(uploaded_file)
+
+            mapa_categorias = {
+                "Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
+                "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa Fixa",
+                "Despesa Variável", "Repasse", "Participação em contrato",
+                "Folha de pagamento", "Diversos", "Distribuição de lucros",
+                "Participação Vinicius Fraga", "Transferência", "Saldo inicial"
+            }
+            categorias_no_arquivo = set(df["Categoria"].dropna().unique())
+            categorias_desconhecidas = categorias_no_arquivo - mapa_categorias
+
+            if categorias_desconhecidas:
+                st.warning(
+                    f"⚠️ As seguintes categorias não foram reconhecidas e serão ignoradas no relatório: "
+                    f"**{', '.join(sorted(categorias_desconhecidas))}**. "
+                    f"Verifique se o arquivo está correto ou avise o suporte."
+                )
+
             dre_operacional, destinacao, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df)
 
             with pd.ExcelWriter("Relatorio_Completo.xlsx", engine="xlsxwriter") as writer:
@@ -73,10 +85,8 @@ if uploaded_file is not None:
                 conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False)
-
                 workbook  = writer.book
                 worksheet = workbook.add_worksheet("Graficos")
-
                 aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despesas_detalhadas, conciliacao, bancos_pivot)
                 criar_graficos(workbook, worksheet, df, despesas_detalhadas, dre_operacional, destinacao, resumo, writer)
 
@@ -91,6 +101,6 @@ if uploaded_file is not None:
         except Exception as e:
             st.error("❌ O arquivo enviado não está no formato esperado. Verifique se é o relatório do Astrea em .xlsx.")
 
-# ===== Rodapé =====
+
 st.markdown("<hr>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;color:#888;'>Desenvolvido por Raquel • 2026</p>", unsafe_allow_html=True)
