@@ -129,7 +129,7 @@ if uploaded_file is not None:
             )
 
         except Exception as e:
-            st.error("❌ O arquivo enviado não está no formato esperado. Verifique se é o relatório do Astrea em .xlsx.")
+            st.error(f"❌ Erro: {e}")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;color:#888;'>Desenvolvido por Raquel • 2026</p>", unsafe_allow_html=True)
