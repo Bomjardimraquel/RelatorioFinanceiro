@@ -208,17 +208,18 @@ if uploaded_file is not None:
 
             st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
 
-            receita_bruta       = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
+            receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
             resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
-            total_despesas      = despesas_detalhadas["VALORES"].sum()
-            lucro_liquido       = resumo.loc[resumo["Indicador"] == "Lucro Líquido após Destinação", "Valor (R$)"].values[0]
+            lucro_liquido         = resumo.loc[resumo["Indicador"] == "Lucro Líquido após Destinação", "Valor (R$)"].values[0]
+            linhas_despesa = ["(-) Impostos e Deduções", "(-) Custos/Folha de Pagamento", "(-) Despesas Fixas", "(-) Despesas Variáveis", "Repasse"]
+            total_despesas = dre_operacional[dre_operacional["Conta"].isin(linhas_despesa)]["Valor (R$)"].sum()
 
             cor_resultado = "green" if resultado_operacional >= 0 else "red"
             cor_liquido   = "green" if lucro_liquido >= 0 else "red"
 
             st.markdown(f"""
                 <div class="resumo-card">
-                    <h4> Resumo — {mes_ano}</h4>
+                    <h4>Resumo — {mes_ano}</h4>
                     <div class="metric-row">
                         <div class="metric">
                             <div class="label">Receita Bruta</div>
