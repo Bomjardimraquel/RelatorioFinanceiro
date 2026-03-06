@@ -103,8 +103,3 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
         ws_bancos.write(row_num, 3, saidas, saida_format)
         ws_bancos.write(row_num, 4, saldo_mes, saldo_format)
         ws_bancos.write(row_num, 5, saldo_final, saldo_format)
-
-        ws_bancos.write(row_num, 0, banco)
-        ws_bancos.write(row_num, 1, entradas, entrada_format)
-        ws_bancos.write(row_num, 2, saidas, saida_format)
-        ws_bancos.write(row_num, 3, saldo, saldo_format)
