@@ -4,8 +4,10 @@ from relatorios import gerar_relatorios
 from estilos import aplicar_estilos
 from graficos import criar_graficos
 
+# ===== Configuração da página =====
 st.set_page_config(page_title="Relatório Financeiro", page_icon="🗂️", layout="centered")
 
+# ===== Estilos customizados =====
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -130,16 +132,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ===== Banner =====
 st.markdown("""
     <div class="banner">
-        <h1>Relatório Financeiro</h1>
+        <h1>🗂️ Relatório Financeiro</h1>
         <p>Faça o upload do relatório do Astrea e receba análises completas em Excel</p>
     </div>
 """, unsafe_allow_html=True)
 
+# ===== Instruções =====
 st.markdown("""
     <div class="instrucoes">
-        <h4>Como usar</h4>
+        <h4>📋 Como usar</h4>
         <ol>
             <li>Acesse o <strong>Astrea</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
             <li>Certifique-se de que o arquivo contém apenas lançamentos do mês desejado</li>
@@ -149,9 +153,11 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# ===== Upload =====
 uploaded_file = st.file_uploader("Selecione o arquivo exportado do Astrea (.xlsx)", type="xlsx", label_visibility="visible")
-st.info("Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
+st.info("ℹ️ Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
+# ===== Mapa de meses =====
 MESES = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
@@ -161,11 +167,13 @@ MESES = {
 def formatar_brl(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+# ===== Processamento =====
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
             df = pd.read_excel(uploaded_file)
 
+            # ===== VALIDAÇÃO DE CATEGORIAS =====
             mapa_categorias = {
                 "Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
                 "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa Fixa",
@@ -181,6 +189,7 @@ if uploaded_file is not None:
                     f"**{', '.join(sorted(categorias_desconhecidas))}**"
                 )
 
+            # ===== EXTRAIR MÊS/ANO =====
             try:
                 primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
                 mes_nome = MESES[primeira_data.month]
@@ -206,19 +215,22 @@ if uploaded_file is not None:
                 aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
                 criar_graficos(workbook, worksheet, df, despesas_detalhadas, dre_operacional, destinacao, resumo, writer)
 
-            st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
+            st.success(f"✅ Relatório de **{mes_ano}** gerado com sucesso!")
 
-            receita_bruta       = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
+            # ===== RESUMO DOS NÚMEROS =====
+            receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
             resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
-            total_despesas      = despesas_detalhadas["VALORES"].sum()
-            lucro_liquido       = resumo.loc[resumo["Indicador"] == "Lucro Líquido após Destinação", "Valor (R$)"].values[0]
+            lucro_liquido         = resumo.loc[resumo["Indicador"] == "Lucro Líquido após Destinação", "Valor (R$)"].values[0]
+            # Total despesas = soma das linhas de custo da DRE (sem dobrar os totais da aba Despesas)
+            linhas_despesa = ["(-) Impostos e Deduções", "(-) Custos/Folha de Pagamento", "(-) Despesas Fixas", "(-) Despesas Variáveis", "Repasse"]
+            total_despesas = dre_operacional[dre_operacional["Conta"].isin(linhas_despesa)]["Valor (R$)"].sum()
 
             cor_resultado = "green" if resultado_operacional >= 0 else "red"
             cor_liquido   = "green" if lucro_liquido >= 0 else "red"
 
             st.markdown(f"""
                 <div class="resumo-card">
-                    <h4> Resumo — {mes_ano}</h4>
+                    <h4>📊 Resumo — {mes_ano}</h4>
                     <div class="metric-row">
                         <div class="metric">
                             <div class="label">Receita Bruta</div>
@@ -241,7 +253,7 @@ if uploaded_file is not None:
             """, unsafe_allow_html=True)
 
             st.download_button(
-                label="Baixar Relatório Completo",
+                label="⬇️ Baixar Relatório Completo",
                 data=open(nome_arquivo, "rb"),
                 file_name=nome_arquivo,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -250,4 +262,5 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
 
+# ===== Rodapé =====
 st.markdown("<div class='rodape'>Desenvolvido por Raquel • 2026</div>", unsafe_allow_html=True)
