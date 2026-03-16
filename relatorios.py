@@ -1,7 +1,6 @@
 import pandas as pd
 from funcoes import soma, soma_entradas
 
-# Categorias que são despesas operacionais reais (aparecem na aba Despesas)
 CATEGORIAS_DESPESA = [
     "Despesa Fixa",
     "Despesa Variável",
@@ -12,8 +11,15 @@ CATEGORIAS_DESPESA = [
     "Impostos",
 ]
 
+KEYWORDS_INVESTIMENTO = ["resultado de investimento", "resutado de investimento", "rendimento"]
+
+def eh_investimento(descricao):
+    if not descricao:
+        return False
+    return any(kw in str(descricao).lower() for kw in KEYWORDS_INVESTIMENTO)
+
 def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
-    # ===== MAPA DE CATEGORIAS =====
+
     mapa_categorias = {
         "Honorários": "Receita Bruta",
         "Exito": "Receita Bruta",
@@ -21,7 +27,7 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
         "Partido": "Receita Bruta",
         "Sucumbencial": "Receita Bruta",
         "Compensação/liminar": "Receita Bruta",
-        "Diversos": "Receita Bruta",                  # CORRIGIDO: entra na receita bruta
+        "Diversos": "Receita Bruta",
         "Impostos": "Impostos e Deduções",
         "Despesa bancária": "Impostos e Deduções",
         "Despesa Fixa": "Despesas Fixas",
@@ -33,86 +39,88 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
         "Participação Vinicius Fraga": "Destinação"
     }
 
-    # ===== Capturar categorias dinâmicas =====
-    categorias_unicas = df["Categoria"].dropna().unique()
-    valores_por_grupo = {}
-    for cat in categorias_unicas:
-        grupo = mapa_categorias.get(cat, "Outras")
-        valores_por_grupo[grupo] = valores_por_grupo.get(grupo, 0) + df[df["Categoria"] == cat]["Valor"].sum()
-    outras = valores_por_grupo.get("Outras", 0)
+    mask_investimento = (df["Categoria"] == "Diversos") & (df["Descricao"].apply(eh_investimento))
+    df_investimento   = df[mask_investimento].copy()
+    df_receita        = df[~mask_investimento].copy()  # tudo exceto investimentos
 
-    # ===== DRE OPERACIONAL =====
-    honorarios    = soma_entradas(df, ["Honorários"])
-    exito         = soma_entradas(df, ["Exito"])
-    contratado    = soma_entradas(df, ["Contratado", "Partido"])
-    sucumbenciais = soma_entradas(df, ["Sucumbencial"])
-    compensacoes  = soma_entradas(df, ["Compensação/liminar"])
-    diversos      = soma_entradas(df, ["Diversos"])            # CORRIGIDO
-    receita_bruta = honorarios + exito + contratado + sucumbenciais + compensacoes + diversos
+    mask_cartao = (
+        (df_receita["Categoria"] == "Transferência") &
+        (df_receita["Tipo"] == "Saída") &
+        (df_receita["Descricao"].str.contains("cartão|cartao|fatura", case=False, na=False))
+    )
+    df_cartao = df_receita[mask_cartao].copy()
+    df_cartao["Categoria"] = "Despesa Variável"  
+    df_receita = df_receita[~mask_cartao].copy()
+    df_receita = pd.concat([df_receita, df_cartao], ignore_index=True)
 
-    impostos      = soma(df, ["Impostos", "Despesa bancária"])
-    folha         = soma(df, ["Folha de pagamento"])
-    pro_labore    = df[(df["Descricao"].str.contains("pró labore", case=False, na=False))]["Valor"].sum()
-    custos_folha  = folha + pro_labore
+    
+    honorarios     = soma_entradas(df_receita, ["Honorários"])
+    exito          = soma_entradas(df_receita, ["Exito"])
+    contratado     = soma_entradas(df_receita, ["Contratado", "Partido"])
+    sucumbenciais  = soma_entradas(df_receita, ["Sucumbencial"])
+    compensacoes   = soma_entradas(df_receita, ["Compensação/liminar"])
+    diversos_rec   = soma_entradas(df_receita, ["Diversos"])  
+    receita_bruta  = honorarios + exito + contratado + sucumbenciais + compensacoes + diversos_rec
 
-    despesas_fixas    = soma(df, ["Despesa Fixa"])
-    despesas_variaveis = soma(df, ["Despesa Variável"])
-    repasse_clientes  = soma(df, ["Repasse", "Participação em contrato"])
+    impostos       = soma(df_receita, ["Impostos"])
+    folha          = soma(df_receita, ["Folha de pagamento"])  
+    custos_folha   = folha
 
-    receita_liquida      = receita_bruta + impostos
-    lucro_bruto          = receita_liquida + custos_folha
-    resultado_operacional = lucro_bruto + despesas_fixas + despesas_variaveis + repasse_clientes + outras
+    despesas_fixas     = soma(df_receita, ["Despesa Fixa", "Despesa bancária"])
+    despesas_variaveis = soma(df_receita, ["Despesa Variável"])  
+    repasse_clientes   = soma(df_receita, ["Repasse", "Participação em contrato"])
+
+    receita_liquida       = receita_bruta + impostos
+    lucro_bruto           = receita_liquida + custos_folha
+    resultado_operacional = lucro_bruto + despesas_fixas + despesas_variaveis + repasse_clientes
 
     dre_operacional = pd.DataFrame({
         "Conta": [
             "Receita Bruta", "Honorários", "Êxito", "Contratado/Partido",
             "Sucumbenciais", "Compensações", "Diversos",
-            "(-) Impostos e Deduções", "Receita Líquida",
-            "(-) Custos/Folha de Pagamento", "Salários", "Pró-labore",
+            "(-) Impostos", "Receita Líquida",
+            "(-) Folha de Pagamento",
             "Lucro Bruto", "(-) Despesas Fixas", "(-) Despesas Variáveis", "Repasse",
-            "Outras Categorias", "Resultado Operacional"
+            "Resultado Operacional"
         ],
         "Valor (R$)": [
             receita_bruta, honorarios, exito, contratado,
-            sucumbenciais, compensacoes, diversos,
+            sucumbenciais, compensacoes, diversos_rec,
             impostos, receita_liquida,
-            custos_folha, folha, pro_labore,
+            custos_folha,
             lucro_bruto, despesas_fixas, despesas_variaveis, repasse_clientes,
-            outras, resultado_operacional
+            resultado_operacional
         ]
     })
 
-    # ===== DESTINAÇÃO DO LUCRO =====
-    distribuicao_lucros  = soma(df, ["Distribuição de lucros"])
-    participacao_vinicius = soma(df, ["Participação Vinicius Fraga"])
-    total_destinacao     = distribuicao_lucros + participacao_vinicius
+    distribuicao_lucros   = soma(df_receita, ["Distribuição de lucros"])
+    participacao_vinicius = soma(df_receita, ["Participação Vinicius Fraga"])
+    total_destinacao      = distribuicao_lucros + participacao_vinicius
 
     destinacao = pd.DataFrame({
         "Conta": ["Distribuição de Lucros", "Participação Vinicius Fraga", "Total Destinação"],
         "Valor (R$)": [distribuicao_lucros, participacao_vinicius, total_destinacao]
     })
 
-    # ===== RESUMO FINAL =====
     lucro_liquido_final = resultado_operacional + total_destinacao
     resumo = pd.DataFrame({
-        "Indicador": ["Lucro Operacional", "Total Destinação", "Lucro Líquido após Destinação"],
+        "Indicador": ["Resultado Operacional", "Total Destinação", "Lucro Líquido após Destinação"],
         "Valor (R$)": [resultado_operacional, total_destinacao, lucro_liquido_final]
     })
 
-    # ===== CONCILIAÇÃO =====
-    receita_fixa       = df[(df["Tipo"] == "Entrada") & (df["Categoria"].str.contains("Partido", case=False, na=False))][["Data", "Descricao", "Valor"]]
-    operacional_variavel = df[(df["Tipo"] == "Entrada") & (df["Categoria"].isin(["Honorários", "Exito", "Sucumbencial", "Compensação/liminar", "Diversos"]))][["Data", "Descricao", "Valor"]]
-    nao_contabil       = df[(df["Tipo"] == "Entrada") & (df["Categoria"].isin(["Saldo inicial", "Transferência"]))][["Data", "Descricao", "Valor"]]
+    receita_fixa        = df_receita[(df_receita["Tipo"] == "Entrada") & (df_receita["Categoria"] == "Partido")][["Data", "Descricao", "Valor"]]
+    receita_variavel    = df_receita[(df_receita["Tipo"] == "Entrada") & (df_receita["Categoria"].isin(["Honorários", "Exito", "Sucumbencial", "Compensação/liminar", "Contratado", "Diversos"]))][["Data", "Descricao", "Valor"]]
+    nao_contabil        = df_investimento[df_investimento["Tipo"] == "Entrada"][["Data", "Descricao", "Valor"]]
 
-    total_fixa        = receita_fixa["Valor"].sum()
-    total_variavel    = operacional_variavel["Valor"].sum()
-    total_nao_contabil = nao_contabil["Valor"].sum()
+    total_fixa          = receita_fixa["Valor"].sum()
+    total_variavel      = receita_variavel["Valor"].sum()
+    total_nao_contabil  = nao_contabil["Valor"].sum()
 
     conciliacao = pd.concat([
         receita_fixa.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
         pd.DataFrame({"Conta": ["Total Receita Fixa"], "Valor (R$)": [total_fixa]}),
-        operacional_variavel.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
-        pd.DataFrame({"Conta": ["Total Receita Operacional Variável"], "Valor (R$)": [total_variavel]}),
+        receita_variavel.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
+        pd.DataFrame({"Conta": ["Total Receita Variável"], "Valor (R$)": [total_variavel]}),
         nao_contabil.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
         pd.DataFrame({"Conta": ["Total Movimento Não Contábil"], "Valor (R$)": [total_nao_contabil]}),
     ])
@@ -120,11 +128,9 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
     conciliacao = conciliacao[conciliacao["Conta"].notna() & (conciliacao["Conta"].str.strip() != "")]
     conciliacao = conciliacao.drop_duplicates().reset_index(drop=True)
 
-    # ===== DESPESAS DETALHADAS =====
-    # CORRIGIDO: só categorias operacionais, sem Transferência, Distribuição e Participação Vinicius
-    despesas = df[
-        (df["Tipo"] == "Saída") &
-        (df["Categoria"].isin(CATEGORIAS_DESPESA))
+    despesas = df_receita[
+        (df_receita["Tipo"] == "Saída") &
+        (df_receita["Categoria"].isin(CATEGORIAS_DESPESA))
     ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]]
 
     totais = despesas.groupby("Categoria")["Valor"].sum().reset_index()
@@ -140,8 +146,7 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
         "Valor": "VALORES"
     })
 
-    # ===== RELATÓRIO POR BANCOS =====
-    bancos = df.groupby(["Conta Financeira", "Tipo"])["Valor"].sum().reset_index()
+    bancos = df_receita.groupby(["Conta Financeira", "Tipo"])["Valor"].sum().reset_index()
     bancos_pivot = bancos.pivot_table(
         index="Conta Financeira", columns="Tipo", values="Valor", aggfunc="sum", fill_value=0
     ).reset_index()
@@ -152,7 +157,7 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
         "Saída": "SAÍDAS (R$)"
     })
     saldo_inicial_por_banco = (
-        df[df["Categoria"] == "Saldo inicial"]
+        df_receita[df_receita["Categoria"] == "Saldo inicial"]
         .groupby("Conta Financeira")["Valor"].sum().reset_index()
         .rename(columns={"Conta Financeira": "BANCO", "Valor": "Saldo Inicial (R$)"})
     )
@@ -161,14 +166,5 @@ def gerar_relatorios(df, nome_arquivo="Relatorio_Completo.xlsx"):
     bancos_pivot["Saldo Final (R$)"] = bancos_pivot["Saldo Inicial (R$)"] + bancos_pivot["Saldo do Mês (R$)"]
     colunas = ["BANCO", "Saldo Inicial (R$)", "ENTRADAS (R$)", "SAÍDAS (R$)", "Saldo do Mês (R$)", "Saldo Final (R$)"]
     bancos_pivot = bancos_pivot[[c for c in colunas if c in bancos_pivot.columns]]
-
-    # ===== EXPORTAR =====
-    with pd.ExcelWriter(nome_arquivo) as writer:
-        dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False)
-        destinacao.to_excel(writer, sheet_name="Destinacao", index=False)
-        resumo.to_excel(writer, sheet_name="Resumo", index=False)
-        conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False)
-        despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False)
-        bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False)
 
     return dre_operacional, destinacao, resumo, conciliacao, despesas_detalhadas, bancos_pivot
