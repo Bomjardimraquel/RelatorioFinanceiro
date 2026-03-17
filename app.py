@@ -2,137 +2,53 @@ import streamlit as st
 import pandas as pd
 from relatorios import gerar_relatorios
 from estilos import aplicar_estilos
-from graficos import criar_graficos
 
 st.set_page_config(page_title="Relatório Financeiro", page_icon="🗂️", layout="centered")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     .main { background-color: #f4f6f9; }
-
     .banner {
         background: linear-gradient(135deg, #1F3864 0%, #2E75B6 100%);
-        padding: 36px 24px;
-        border-radius: 14px;
-        margin-bottom: 28px;
-        text-align: center;
-        box-shadow: 0 4px 16px rgba(31,56,100,0.18);
+        padding: 36px 24px; border-radius: 14px; margin-bottom: 28px;
+        text-align: center; box-shadow: 0 4px 16px rgba(31,56,100,0.18);
     }
-    .banner h1 {
-        color: white;
-        font-size: 2rem;
-        font-weight: 700;
-        margin: 0 0 8px 0;
-        letter-spacing: -0.5px;
-    }
-    .banner p {
-        color: rgba(255,255,255,0.85);
-        font-size: 1rem;
-        margin: 0;
-    }
-
+    .banner h1 { color: white; font-size: 2rem; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -0.5px; }
+    .banner p  { color: rgba(255,255,255,0.85); font-size: 1rem; margin: 0; }
     .instrucoes {
-        background: white;
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-bottom: 24px;
-        border-left: 4px solid #2E75B6;
+        background: white; border-radius: 12px; padding: 20px 24px;
+        margin-bottom: 24px; border-left: 4px solid #2E75B6;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .instrucoes h4 {
-        color: #1F3864;
-        margin: 0 0 12px 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .instrucoes ol {
-        margin: 0;
-        padding-left: 20px;
-        color: #444;
-        font-size: 0.92rem;
-        line-height: 1.8;
-    }
-
+    .instrucoes h4 { color: #1F3864; margin: 0 0 12px 0; font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .instrucoes ol { margin: 0; padding-left: 20px; color: #444; font-size: 0.92rem; line-height: 1.8; }
     .resumo-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        background: white; border-radius: 12px; padding: 20px 24px;
+        margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .resumo-card h4 {
-        color: #1F3864;
-        margin: 0 0 16px 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .metric-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-    .metric {
-        flex: 1;
-        min-width: 140px;
-        background: #f4f6f9;
-        border-radius: 10px;
-        padding: 14px 16px;
-        text-align: center;
-    }
-    .metric .label {
-        font-size: 0.78rem;
-        color: #666;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        margin-bottom: 6px;
-    }
-    .metric .value {
-        font-size: 1.15rem;
-        font-weight: 700;
-    }
+    .resumo-card h4 { color: #1F3864; margin: 0 0 16px 0; font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .metric { flex: 1; min-width: 140px; background: #f4f6f9; border-radius: 10px; padding: 14px 16px; text-align: center; }
+    .metric .label { font-size: 0.78rem; color: #666; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+    .metric .value { font-size: 1.15rem; font-weight: 700; }
     .metric .value.green { color: #1a7a4a; }
     .metric .value.red   { color: #c00000; }
     .metric .value.blue  { color: #1F3864; }
-
     .stDownloadButton > button {
         background: linear-gradient(135deg, #1F3864 0%, #2E75B6 100%);
-        color: white;
-        font-weight: 600;
-        border-radius: 10px;
-        padding: 12px 28px;
-        font-size: 1rem;
-        border: none;
-        width: 100%;
-        transition: opacity 0.2s;
+        color: white; font-weight: 600; border-radius: 10px;
+        padding: 12px 28px; font-size: 1rem; border: none; width: 100%;
     }
-    .stDownloadButton > button:hover { opacity: 0.88; }
-
     footer { visibility: hidden; }
-    .rodape {
-        text-align: center;
-        color: #aaa;
-        font-size: 0.82rem;
-        margin-top: 40px;
-        padding-top: 16px;
-        border-top: 1px solid #e0e0e0;
-    }
+    .rodape { text-align: center; color: #aaa; font-size: 0.82rem; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e0e0e0; }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
     <div class="banner">
-        <h1>Relatório Financeiro</h1>
+        <h1>🗂️Relatório Financeiro</h1>
         <p>Faça o upload do relatório do Astrea e receba análises completas em Excel</p>
     </div>
 """, unsafe_allow_html=True)
@@ -143,13 +59,22 @@ st.markdown("""
         <ol>
             <li>Acesse o <strong>Astrea</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
             <li>Certifique-se de que o arquivo contém apenas lançamentos do mês desejado</li>
-            <li>Faça o upload abaixo e aguarde o processamento</li>
+            <li>Se houver provisão de repasse ao ex-sócio ainda não lançada, informe o valor abaixo</li>
+            <li>Faça o upload e aguarde o processamento</li>
             <li>Baixe o relatório completo com DRE, Despesas, Conciliação e Bancos</li>
         </ol>
     </div>
 """, unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Selecione o arquivo exportado do Astrea (.xlsx)", type="xlsx", label_visibility="visible")
+provisao_vinicius = st.number_input(
+    "Provisão de repasse (R$) — deixe 0 se não houver",
+    min_value=0.0,
+    value=0.0,
+    step=100.0,
+    format="%.2f"
+)
+
+uploaded_file = st.file_uploader("Selecione o arquivo exportado do Astrea (.xlsx)", type="xlsx")
 st.info("Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
 MESES = {
@@ -173,49 +98,88 @@ if uploaded_file is not None:
                 "Folha de pagamento", "Diversos", "Distribuição de lucros",
                 "Participação Vinicius Fraga", "Transferência", "Saldo inicial"
             }
-            categorias_no_arquivo = set(df["Categoria"].dropna().unique())
-            categorias_desconhecidas = categorias_no_arquivo - mapa_categorias
-            if categorias_desconhecidas:
-                st.warning(
-                    f"⚠️ Categorias não reconhecidas (serão ignoradas): "
-                    f"**{', '.join(sorted(categorias_desconhecidas))}**"
-                )
+            cats_desconhecidas = set(df["Categoria"].dropna().unique()) - mapa_categorias
+            if cats_desconhecidas:
+                st.warning(f"⚠️ Categorias não reconhecidas (serão ignoradas): **{', '.join(sorted(cats_desconhecidas))}**")
 
             try:
                 primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
-                mes_nome = MESES[primeira_data.month]
-                ano = primeira_data.year
-                mes_ano = f"{mes_nome} {ano}"
-                nome_arquivo = f"Relatorio_{mes_nome}_{ano}.xlsx"
+                mes_nome      = MESES[primeira_data.month]
+                ano           = primeira_data.year
+                mes_ano       = f"{mes_nome} {ano}"
+                nome_arquivo  = f"Relatorio_{mes_nome}_{ano}.xlsx"
             except Exception:
-                mes_ano = ""
+                mes_ano      = ""
                 nome_arquivo = "Relatorio_Completo.xlsx"
 
-            dre_operacional, destinacao, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df)
+            from relatorios import gerar_ranking_clientes, gerar_centro_custos
+            dre_operacional, nao_contabil, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df, provisao_vinicius=provisao_vinicius)
+            ranking = gerar_ranking_clientes(df)
+            centros = gerar_centro_custos(df)
 
             with pd.ExcelWriter(nome_arquivo, engine="xlsxwriter") as writer:
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
-                destinacao.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+7, index=False)
-                resumo.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+len(destinacao)+10, index=False)
+                nao_contabil.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+7, index=False)
                 conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False, startrow=2)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False, startrow=2)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False, startrow=2)
-                workbook = writer.book
-                worksheet = workbook.add_worksheet("Graficos")
-                aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
-                criar_graficos(workbook, worksheet, df, despesas_detalhadas, dre_operacional, destinacao, resumo, writer)
+                ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)
+                centros.to_excel(writer, sheet_name="Centro_Custos", index=False, startrow=2)
+                workbook  = writer.book
+                fmts = aplicar_estilos(workbook, writer, dre_operacional, nao_contabil, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
+
+                ws_rank  = writer.sheets["Ranking_Clientes"]
+                rf       = fmts["rank_fmts"]
+                for i, row in ranking.reset_index().iterrows():
+                    r      = i + 3
+                    zebra  = (r % 2 == 0)
+                    pos_f  = rf["pos_zebra"] if zebra else rf["pos_num"]
+                    txt_f  = rf["zebra_txt"] if zebra else rf["plain"]
+                    val_f  = rf["zebra_val"] if zebra else rf["moeda"]
+                    pct_f  = rf["pct_zebra"] if zebra else rf["pct"]
+                    ws_rank.write(r, 0, row["POS."], pos_f)
+                    ws_rank.write(r, 1, row["CLIENTE"], txt_f)
+                    ws_rank.write(r, 2, row["RECEITA (R$)"], val_f)
+                    ws_rank.write(r, 3, row["PARTICIPAÇÃO (%)"] / 100, pct_f)
+
+                total_r = len(ranking) + 3
+                ws_rank.write(total_r, 0, "", rf["total_txt"])
+                ws_rank.write(total_r, 1, "TOTAL", rf["total_txt"])
+                ws_rank.write(total_r, 2, ranking["RECEITA (R$)"].sum(), rf["total_val"])
+                ws_rank.write(total_r, 3, 1.0, rf["pct"])
+
+                ws_cc = writer.sheets["Centro_Custos"]
+                cf    = fmts["cc_fmts"]
+                for i, row in centros.iterrows():
+                    r     = i + 3
+                    zebra = (r % 2 == 0)
+                    is_total = str(row["CENTRO DE CUSTO"]) == "TOTAL"
+                    txt_f = cf["total_txt"] if is_total else (cf["zebra_txt"] if zebra else cf["plain"])
+                    rec_f = cf["total_val"] if is_total else (cf["zebra_val"] if zebra else cf["moeda"])
+                    dep_f = cf["total_val"] if is_total else (cf["zebra_neg"] if zebra else cf["neg"])
+                    res   = row["RESULTADO (R$)"]
+                    if is_total:
+                        res_f = cf["total_val"]
+                    elif res >= 0:
+                        res_f = cf["res_pz"] if zebra else cf["res_pos"]
+                    else:
+                        res_f = cf["res_nz"] if zebra else cf["res_neg"]
+                    ws_cc.write(r, 0, row["CENTRO DE CUSTO"], txt_f)
+                    ws_cc.write(r, 1, row["RECEITA (R$)"],    rec_f)
+                    ws_cc.write(r, 2, row["DESPESA (R$)"],    dep_f)
+                    ws_cc.write(r, 3, res,                     res_f)
 
             st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
 
             receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
             resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
-            lucro_liquido         = resumo.loc[resumo["Indicador"] == "Lucro Líquido após Destinação", "Valor (R$)"].values[0]
-            linhas_despesa = ["(-) Impostos e Deduções", "(-) Custos/Folha de Pagamento", "(-) Despesas Fixas", "(-) Despesas Variáveis", "Repasse"]
-            total_despesas = dre_operacional[dre_operacional["Conta"].isin(linhas_despesa)]["Valor (R$)"].sum()
+            linhas_despesa        = ["(-) Impostos", "(-) Folha de Pagamento", "(-) Despesa Bancária", "(-) Despesas Fixas", "(-) Despesas Variáveis", "(-) Participação em Contratos", "(-) Repasse"]
+            total_despesas        = dre_operacional[dre_operacional["Conta"].isin(linhas_despesa)]["Valor (R$)"].sum()
+            if provisao_vinicius:
+                total_despesas += -abs(provisao_vinicius)
 
             cor_resultado = "green" if resultado_operacional >= 0 else "red"
-            cor_liquido   = "green" if lucro_liquido >= 0 else "red"
 
             st.markdown(f"""
                 <div class="resumo-card">
@@ -233,13 +197,12 @@ if uploaded_file is not None:
                             <div class="label">Resultado Operacional</div>
                             <div class="value {cor_resultado}">{formatar_brl(resultado_operacional)}</div>
                         </div>
-                        <div class="metric">
-                            <div class="label">Lucro Líquido</div>
-                            <div class="value {cor_liquido}">{formatar_brl(lucro_liquido)}</div>
-                        </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
+
+            if provisao_vinicius:
+                st.info(f"Provisão de repasse ao ex-sócio de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
 
             st.download_button(
                 label="Baixar Relatório Completo",
