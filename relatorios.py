@@ -42,28 +42,33 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
 
     impostos           = soma(df_receita, ["Impostos"])
     folha              = soma(df_receita, ["Folha de pagamento"])
-    despesas_fixas     = soma(df_receita, ["Despesa Fixa", "Despesa bancária"])
+    desp_bancaria      = soma(df_receita, ["Despesa bancária"])
+    despesas_fixas     = soma(df_receita, ["Despesa Fixa"])
     despesas_variaveis = soma(df_receita, ["Despesa Variável"])
-    repasse_clientes   = soma(df_receita, ["Repasse", "Participação em contrato"])
+    repasse            = soma(df_receita, ["Repasse"])
+    participacao       = soma(df_receita, ["Participação em contrato"])
+    repasse_clientes   = repasse + participacao
     provisao           = -abs(provisao_vinicius) if provisao_vinicius else 0.0
 
     receita_liquida       = receita_bruta + impostos
     lucro_bruto           = receita_liquida + folha
-    resultado_operacional = lucro_bruto + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
+    resultado_operacional = lucro_bruto + desp_bancaria + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
 
     contas  = [
         "Receita Bruta", "Honorários", "Êxito", "Contratado/Partido",
         "Sucumbenciais", "Compensações", "Diversos",
         "(-) Impostos", "Receita Líquida",
         "(-) Folha de Pagamento",
-        "Lucro Bruto", "(-) Despesas Fixas", "(-) Despesas Variáveis", "Repasse",
+        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesas Fixas", "(-) Despesas Variáveis",
+        "(-) Participação em Contratos", "(-) Repasse",
     ]
     valores = [
         receita_bruta, honorarios, exito, contratado,
         sucumbenciais, compensacoes, diversos_rec,
         impostos, receita_liquida,
         folha,
-        lucro_bruto, despesas_fixas, despesas_variaveis, repasse_clientes,
+        lucro_bruto, desp_bancaria, despesas_fixas, despesas_variaveis,
+        participacao, repasse,
     ]
     if provisao_vinicius:
         contas.append("(-) Provisão Repasse Ex-Sócio")
