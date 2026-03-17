@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from relatorios import gerar_relatorios
 from estilos import aplicar_estilos
-from graficos import criar_graficos
 
 st.set_page_config(page_title="Relatório Financeiro", page_icon="🗂️", layout="centered")
 
@@ -49,7 +48,7 @@ st.markdown("""
 
 st.markdown("""
     <div class="banner">
-        <h1>Relatório Financeiro</h1>
+        <h1>🗂️Relatório Financeiro</h1>
         <p>Faça o upload do relatório do Astrea e receba análises completas em Excel</p>
     </div>
 """, unsafe_allow_html=True)
@@ -103,7 +102,6 @@ if uploaded_file is not None:
             if cats_desconhecidas:
                 st.warning(f"⚠️ Categorias não reconhecidas (serão ignoradas): **{', '.join(sorted(cats_desconhecidas))}**")
 
-            # ===== MÊS/ANO =====
             try:
                 primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
                 mes_nome      = MESES[primeira_data.month]
@@ -123,23 +121,60 @@ if uploaded_file is not None:
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
                 nao_contabil.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+7, index=False)
-                resumo.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+len(nao_contabil)+10, index=False)
                 conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False, startrow=2)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False, startrow=2)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False, startrow=2)
-                ranking.to_excel(writer, sheet_name="Ranking_Clientes", startrow=2)
+                ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)
                 centros.to_excel(writer, sheet_name="Centro_Custos", index=False, startrow=2)
                 workbook  = writer.book
-                worksheet = workbook.add_worksheet("Graficos")
-                aplicar_estilos(workbook, writer, dre_operacional, nao_contabil, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
-                criar_graficos(workbook, worksheet, df, despesas_detalhadas, dre_operacional, nao_contabil, resumo, writer)
+                fmts = aplicar_estilos(workbook, writer, dre_operacional, nao_contabil, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
+
+                ws_rank  = writer.sheets["Ranking_Clientes"]
+                rf       = fmts["rank_fmts"]
+                for i, row in ranking.reset_index().iterrows():
+                    r      = i + 3
+                    zebra  = (r % 2 == 0)
+                    pos_f  = rf["pos_zebra"] if zebra else rf["pos_num"]
+                    txt_f  = rf["zebra_txt"] if zebra else rf["plain"]
+                    val_f  = rf["zebra_val"] if zebra else rf["moeda"]
+                    pct_f  = rf["pct_zebra"] if zebra else rf["pct"]
+                    ws_rank.write(r, 0, row["POS."], pos_f)
+                    ws_rank.write(r, 1, row["CLIENTE"], txt_f)
+                    ws_rank.write(r, 2, row["RECEITA (R$)"], val_f)
+                    ws_rank.write(r, 3, row["PARTICIPAÇÃO (%)"] / 100, pct_f)
+
+                total_r = len(ranking) + 3
+                ws_rank.write(total_r, 0, "", rf["total_txt"])
+                ws_rank.write(total_r, 1, "TOTAL", rf["total_txt"])
+                ws_rank.write(total_r, 2, ranking["RECEITA (R$)"].sum(), rf["total_val"])
+                ws_rank.write(total_r, 3, 1.0, rf["pct"])
+
+                ws_cc = writer.sheets["Centro_Custos"]
+                cf    = fmts["cc_fmts"]
+                for i, row in centros.iterrows():
+                    r     = i + 3
+                    zebra = (r % 2 == 0)
+                    is_total = str(row["CENTRO DE CUSTO"]) == "TOTAL"
+                    txt_f = cf["total_txt"] if is_total else (cf["zebra_txt"] if zebra else cf["plain"])
+                    rec_f = cf["total_val"] if is_total else (cf["zebra_val"] if zebra else cf["moeda"])
+                    dep_f = cf["total_val"] if is_total else (cf["zebra_neg"] if zebra else cf["neg"])
+                    res   = row["RESULTADO (R$)"]
+                    if is_total:
+                        res_f = cf["total_val"]
+                    elif res >= 0:
+                        res_f = cf["res_pz"] if zebra else cf["res_pos"]
+                    else:
+                        res_f = cf["res_nz"] if zebra else cf["res_neg"]
+                    ws_cc.write(r, 0, row["CENTRO DE CUSTO"], txt_f)
+                    ws_cc.write(r, 1, row["RECEITA (R$)"],    rec_f)
+                    ws_cc.write(r, 2, row["DESPESA (R$)"],    dep_f)
+                    ws_cc.write(r, 3, res,                     res_f)
 
             st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
 
-            # ===== RESUMO NA TELA =====
             receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
             resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
-            linhas_despesa        = ["(-) Impostos", "(-) Folha de Pagamento", "(-) Despesas Fixas", "(-) Despesas Variáveis", "Repasse"]
+            linhas_despesa        = ["(-) Impostos", "(-) Folha de Pagamento", "(-) Despesa Bancária", "(-) Despesas Fixas", "(-) Despesas Variáveis", "(-) Participação em Contratos", "(-) Repasse"]
             total_despesas        = dre_operacional[dre_operacional["Conta"].isin(linhas_despesa)]["Valor (R$)"].sum()
             if provisao_vinicius:
                 total_despesas += -abs(provisao_vinicius)
@@ -148,7 +183,7 @@ if uploaded_file is not None:
 
             st.markdown(f"""
                 <div class="resumo-card">
-                    <h4> Resumo — {mes_ano}</h4>
+                    <h4>Resumo — {mes_ano}</h4>
                     <div class="metric-row">
                         <div class="metric">
                             <div class="label">Receita Bruta</div>
@@ -167,7 +202,7 @@ if uploaded_file is not None:
             """, unsafe_allow_html=True)
 
             if provisao_vinicius:
-                st.info(f"ℹ️ Provisão de repasse ao ex-sócio de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
+                st.info(f"Provisão de repasse ao ex-sócio de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
 
             st.download_button(
                 label="Baixar Relatório Completo",
