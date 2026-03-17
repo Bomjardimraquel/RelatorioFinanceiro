@@ -81,12 +81,13 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
         ws_dre.write(linha_dest, col_num, value, header_fmt)
     ws_dre.set_row(linha_dest, 22)
 
-    for row_num, conta in enumerate(destinacao["Conta"], start=linha_dest+1):
+    col_desc = "Descrição" if "Descrição" in destinacao.columns else "Conta"
+    for row_num, conta in enumerate(destinacao[col_desc], start=linha_dest+1):
         valor = destinacao.loc[row_num-(linha_dest+1), "Valor (R$)"]
         is_zebra = (row_num % 2 == 0)
         v_fmt = zebra_fmt if is_zebra else default_fmt
         t_fmt = zebra_txt_fmt if is_zebra else plain_fmt
-        if "Total" in conta:
+        if "Total" in str(conta):
             ws_dre.write(row_num, 0, conta, total_txt_fmt)
             ws_dre.write(row_num, 1, valor, total_fmt)
         elif valor < 0:
