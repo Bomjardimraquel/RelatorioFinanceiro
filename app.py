@@ -67,7 +67,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 provisao_vinicius = st.number_input(
-    "Provisão de repasse (R$) — deixe 0 se não houver",
+    "Provisão de repasse (R$) (deixe 0 se não houver)",
     min_value=0.0,
     value=0.0,
     step=100.0,
