@@ -48,7 +48,7 @@ st.markdown("""
 
 st.markdown("""
     <div class="banner">
-        <h1>🗂️Relatório Financeiro</h1>
+        <h1>Relatório Financeiro</h1>
         <p>Faça o upload do relatório do Astrea e receba análises completas em Excel</p>
     </div>
 """, unsafe_allow_html=True)
@@ -202,7 +202,7 @@ if uploaded_file is not None:
             """, unsafe_allow_html=True)
 
             if provisao_vinicius:
-                st.info(f"Provisão de repasse ao ex-sócio de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
+                st.info(f"Provisão de repasse **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
 
             st.download_button(
                 label="Baixar Relatório Completo",
