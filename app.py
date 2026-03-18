@@ -59,7 +59,7 @@ st.markdown("""
         <ol>
             <li>Acesse o <strong>Astrea</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
             <li>Certifique-se de que o arquivo contém apenas lançamentos do mês desejado</li>
-            <li>Se houver provisão de repasse ao ex-sócio ainda não lançada, informe o valor abaixo</li>
+            <li>Se houver provisão de repasse ainda não lançada, informe o valor abaixo</li>
             <li>Faça o upload e aguarde o processamento</li>
             <li>Baixe o relatório completo com DRE, Despesas, Conciliação e Bancos</li>
         </ol>
