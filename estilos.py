@@ -30,7 +30,6 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     tam       = 10
     titulo_aba = f"Relatório Financeiro — {mes_ano}" if mes_ano else "Relatório Financeiro"
 
-    # ===== Formatos base =====
     def fmt(**kw):
         base = {"font_name": fonte, "font_size": tam}
         base.update(kw)
@@ -46,12 +45,10 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     zebra_txt_fmt= fmt(bg_color="#EEF2F7")
     plain_fmt    = fmt()
 
-    # ===== DRE_Operacional =====
     ws_dre = writer.sheets["DRE_Operacional"]
-    ws_dre.set_row(1, 30)  # espaço para título
+    ws_dre.set_row(1, 30)  
     adicionar_titulo(ws_dre, workbook, titulo_aba, 2)
 
-    # Cabeçalho na linha 2 (após título)
     for col_num, value in enumerate(dre_operacional.columns.values):
         ws_dre.write(2, col_num, value, header_fmt)
     ws_dre.set_row(2, 22)
@@ -75,39 +72,18 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
             ws_dre.write(row_num, 0, conta, t_fmt)
             ws_dre.write(row_num, 1, valor, v_fmt)
 
-    # Destinação
     linha_dest = len(dre_operacional) + 5
     for col_num, value in enumerate(destinacao.columns.values):
         ws_dre.write(linha_dest, col_num, value, header_fmt)
     ws_dre.set_row(linha_dest, 22)
 
-    for row_num, conta in enumerate(destinacao["Conta"], start=linha_dest+1):
+    col_desc = "Descrição" if "Descrição" in destinacao.columns else "Conta"
+    for row_num, conta in enumerate(destinacao[col_desc], start=linha_dest+1):
         valor = destinacao.loc[row_num-(linha_dest+1), "Valor (R$)"]
         is_zebra = (row_num % 2 == 0)
         v_fmt = zebra_fmt if is_zebra else default_fmt
         t_fmt = zebra_txt_fmt if is_zebra else plain_fmt
-        if "Total" in conta:
-            ws_dre.write(row_num, 0, conta, total_txt_fmt)
-            ws_dre.write(row_num, 1, valor, total_fmt)
-        elif valor < 0:
-            ws_dre.write(row_num, 0, conta, t_fmt)
-            ws_dre.write(row_num, 1, valor, neg_fmt)
-        else:
-            ws_dre.write(row_num, 0, conta, t_fmt)
-            ws_dre.write(row_num, 1, valor, v_fmt)
-
-    # Resumo
-    linha_res = linha_dest + len(destinacao) + 3
-    for col_num, value in enumerate(resumo.columns.values):
-        ws_dre.write(linha_res, col_num, value, header_fmt)
-    ws_dre.set_row(linha_res, 22)
-
-    for row_num, conta in enumerate(resumo["Indicador"], start=linha_res+1):
-        valor = resumo.loc[row_num-(linha_res+1), "Valor (R$)"]
-        is_zebra = (row_num % 2 == 0)
-        v_fmt = zebra_fmt if is_zebra else default_fmt
-        t_fmt = zebra_txt_fmt if is_zebra else plain_fmt
-        if "Lucro" in conta and valor > 0:
+        if "Total" in str(conta):
             ws_dre.write(row_num, 0, conta, total_txt_fmt)
             ws_dre.write(row_num, 1, valor, total_fmt)
         elif valor < 0:
@@ -120,7 +96,6 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     ws_dre.set_column(0, 0, 40)
     ws_dre.set_column(1, 1, 20)
 
-    # ===== Despesas =====
     ws_desp = writer.sheets["Despesas"]
     adicionar_titulo(ws_desp, workbook, titulo_aba, 5)
 
@@ -161,7 +136,6 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     ws_desp.set_column(3, 3, 25)
     ws_desp.set_column(4, 4, 18)
 
-    # ===== Conciliação =====
     ws_conc = writer.sheets["Conciliacao"]
     adicionar_titulo(ws_conc, workbook, titulo_aba, 2)
 
@@ -198,7 +172,6 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     ws_conc.set_column(0, 0, 55)
     ws_conc.set_column(1, 1, 20)
 
-    # ===== Bancos =====
     ws_bancos = writer.sheets["Bancos"]
     adicionar_titulo(ws_bancos, workbook, titulo_aba, 6)
 
@@ -237,3 +210,60 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
 
     ws_bancos.set_column(0, 0, 30)
     ws_bancos.set_column(1, 5, 20)
+
+    ws_rank = writer.sheets["Ranking_Clientes"]
+    adicionar_titulo(ws_rank, workbook, titulo_aba, 4)
+
+    pct_fmt     = fmt(num_format="0.0\"%\"")
+    pct_zebra   = fmt(bg_color="#EEF2F7", num_format="0.0\"%\"")
+    pos_num_fmt = fmt(bold=True, align="center", font_color="#1F3864")
+    pos_zebra   = fmt(bold=True, align="center", font_color="#1F3864", bg_color="#EEF2F7")
+    bar_fmt     = fmt(bg_color="#2E75B6", font_color="white", bold=True, align="center")
+
+    headers_rank = ["POS.", "CLIENTE", "RECEITA (R$)", "PARTICIPAÇÃO (%)"]
+    for c, h in enumerate(headers_rank):
+        ws_rank.write(2, c, h, header_fmt)
+    ws_rank.set_row(2, 22)
+
+    from relatorios import gerar_ranking_clientes as _grc
+
+    ws_rank.set_column(0, 0, 6)
+    ws_rank.set_column(1, 1, 45)
+    ws_rank.set_column(2, 2, 18)
+    ws_rank.set_column(3, 3, 18)
+
+    ws_cc = writer.sheets["Centro_Custos"]
+    adicionar_titulo(ws_cc, workbook, titulo_aba, 4)
+
+    res_pos  = fmt(font_color="#375623", bold=True, num_format=moeda)
+    res_neg  = fmt(font_color="#C00000", bold=True, num_format=moeda)
+    res_pz   = fmt(bg_color="#EEF2F7", font_color="#375623", bold=True, num_format=moeda)
+    res_nz   = fmt(bg_color="#EEF2F7", font_color="#C00000", bold=True, num_format=moeda)
+
+    headers_cc = ["CENTRO DE CUSTO", "RECEITA (R$)", "DESPESA (R$)", "RESULTADO (R$)"]
+    for c, h in enumerate(headers_cc):
+        ws_cc.write(2, c, h, header_fmt)
+    ws_cc.set_row(2, 22)
+
+    ws_cc.set_column(0, 0, 28)
+    ws_cc.set_column(1, 3, 18)
+
+    return {
+        "rank_fmts": {
+            "pos_num": pos_num_fmt, "pos_zebra": pos_zebra,
+            "plain": plain_fmt, "zebra_txt": zebra_txt_fmt,
+            "moeda": default_fmt, "zebra_val": zebra_fmt,
+            "pct": pct_fmt, "pct_zebra": pct_zebra,
+            "total_txt": total_txt_fmt, "total_val": total_fmt,
+            "header": header_fmt,
+        },
+        "cc_fmts": {
+            "plain": plain_fmt, "zebra_txt": zebra_txt_fmt,
+            "moeda": default_fmt, "zebra_val": zebra_fmt,
+            "neg": neg_fmt, "zebra_neg": fmt(bg_color="#EEF2F7", font_color="#C00000", num_format=moeda),
+            "res_pos": res_pos, "res_neg": res_neg,
+            "res_pz": res_pz, "res_nz": res_nz,
+            "total_txt": total_txt_fmt, "total_val": total_fmt,
+            "header": header_fmt,
+        }
+    }
