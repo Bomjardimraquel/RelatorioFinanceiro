@@ -147,18 +147,20 @@ st.markdown("""
     }
     .bi-badge span { font-size: 11px; color: #F37820; font-weight: 500; }
 
-    .upload-section {
-        margin: 0 48px 0; padding: 32px 32px 0;
-        background: rgba(255,255,255,0.02); border: 0.5px solid rgba(255,255,255,0.08);
-        border-top-left-radius: 16px; border-top-right-radius: 16px;
+    .upload-title {
+        color: white; font-size: 16px; font-weight: 500;
+        margin: 32px 48px 16px; display: block;
     }
-    .upload-section-bottom {
-        margin: 0 48px 32px; padding: 0 32px 32px;
-        background: rgba(255,255,255,0.02); border: 0.5px solid rgba(255,255,255,0.08);
-        border-top: none;
-        border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;
+    .upload-divider {
+        margin: 0 48px 32px;
+        border: none; border-top: 0.5px solid rgba(255,255,255,0.06);
     }
-    .upload-title { color: white; font-size: 16px; font-weight: 500; margin: 0 0 8px; }
+    div[data-testid="stColumns"] {
+        padding: 0 48px !important;
+        background: rgba(255,255,255,0.02) !important;
+        border-left: 0.5px solid rgba(255,255,255,0.08) !important;
+        border-right: 0.5px solid rgba(255,255,255,0.08) !important;
+    }
 
     .resumo-grid {
         display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;
@@ -187,6 +189,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ===== NAVBAR =====
 st.markdown("""
     <div class="hero-nav">
         <div class="hero-logo">
@@ -203,6 +206,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# ===== HERO =====
 st.markdown("""
     <div class="hero-grid">
         <div class="hero-left">
@@ -254,6 +258,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# ===== CARD POWER BI =====
 st.markdown("""
     <div class="bi-card">
         <div class="bi-card-icon">
@@ -269,8 +274,8 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div id="gerar" class="upload-section"><p class="upload-title">Gerar relatório</p></div>', unsafe_allow_html=True)
-st.markdown('<div class="upload-section-bottom">', unsafe_allow_html=True)
+# ===== SEÇÃO DE UPLOAD =====
+st.markdown('<span id="gerar" class="upload-title">Gerar relatório</span>', unsafe_allow_html=True)
 
 MESES = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -293,8 +298,9 @@ with col2:
         type="xlsx"
     )
 
-st.markdown('</div>', unsafe_allow_html=True)  
+st.markdown('<hr class="upload-divider">', unsafe_allow_html=True)
 
+# ===== PROCESSAMENTO =====
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
@@ -368,7 +374,7 @@ if uploaded_file is not None:
                     ws_cc.write(r, 2, row["DESPESA (R$)"], dep_f)
                     ws_cc.write(r, 3, res, res_f)
 
-            st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
+            st.success(f"✅ Relatório de **{mes_ano}** gerado com sucesso!")
 
             receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
             resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
@@ -400,10 +406,10 @@ if uploaded_file is not None:
             """, unsafe_allow_html=True)
 
             if provisao_vinicius:
-                st.info(f"Provisão de repasse de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
+                st.info(f"ℹ️ Provisão de repasse de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
 
             st.download_button(
-                label="Baixar Relatório Completo",
+                label="⬇️ Baixar Relatório Completo",
                 data=open(nome_arquivo, "rb"),
                 file_name=nome_arquivo,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -412,6 +418,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
 
+# ===== FOOTER =====
 st.markdown("""
     <div class="footer">
         <p class="footer-text">© 2026 Raquel Bomjardim</p>
