@@ -155,11 +155,16 @@ st.markdown("""
         margin: 0 48px 32px;
         border: none; border-top: 0.5px solid rgba(255,255,255,0.06);
     }
-    div[data-testid="stColumns"] {
+    div[data-testid="stColumns"],
+    div[data-testid="stHorizontalBlock"],
+    div[data-testid="stVerticalBlock"] > div[data-testid="element-container"],
+    div.stDownloadButton,
+    div[data-testid="stAlert"] {
+        padding-left: 48px !important;
+        padding-right: 48px !important;
+    }
+    div[data-testid="stMarkdownContainer"] > div[class*="resumo"] {
         padding: 0 48px !important;
-        background: rgba(255,255,255,0.02) !important;
-        border-left: 0.5px solid rgba(255,255,255,0.08) !important;
-        border-right: 0.5px solid rgba(255,255,255,0.08) !important;
     }
 
     .resumo-grid {
@@ -189,7 +194,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ===== NAVBAR =====
 st.markdown("""
     <div class="hero-nav">
         <div class="hero-logo">
@@ -206,7 +210,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ===== HERO =====
 st.markdown("""
     <div class="hero-grid">
         <div class="hero-left">
@@ -258,7 +261,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ===== CARD POWER BI =====
 st.markdown("""
     <div class="bi-card">
         <div class="bi-card-icon">
@@ -274,7 +276,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ===== SEÇÃO DE UPLOAD =====
 st.markdown('<span id="gerar" class="upload-title">Gerar relatório</span>', unsafe_allow_html=True)
 
 MESES = {
@@ -300,7 +301,6 @@ with col2:
 
 st.markdown('<hr class="upload-divider">', unsafe_allow_html=True)
 
-# ===== PROCESSAMENTO =====
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
@@ -374,7 +374,7 @@ if uploaded_file is not None:
                     ws_cc.write(r, 2, row["DESPESA (R$)"], dep_f)
                     ws_cc.write(r, 3, res, res_f)
 
-            st.success(f"✅ Relatório de **{mes_ano}** gerado com sucesso!")
+            st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
 
             receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
             resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
@@ -386,7 +386,7 @@ if uploaded_file is not None:
             cor_resultado = "value-green" if resultado_operacional >= 0 else "value-red"
 
             st.markdown(f"""
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 20px; padding: 0 48px;">
                     <p style="font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.6px; margin: 0 0 12px;">Resumo — {mes_ano}</p>
                     <div class="resumo-grid">
                         <div class="resumo-metric">
@@ -408,17 +408,18 @@ if uploaded_file is not None:
             if provisao_vinicius:
                 st.info(f"ℹ️ Provisão de repasse de **{formatar_brl(provisao_vinicius)}** incluída no resultado.")
 
-            st.download_button(
-                label="⬇️ Baixar Relatório Completo",
-                data=open(nome_arquivo, "rb"),
-                file_name=nome_arquivo,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            _, col_btn, _ = st.columns([0.05, 0.9, 0.05])
+            with col_btn:
+                st.download_button(
+                    label="⬇️ Baixar Relatório Completo",
+                    data=open(nome_arquivo, "rb"),
+                    file_name=nome_arquivo,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
 
-# ===== FOOTER =====
 st.markdown("""
     <div class="footer">
         <p class="footer-text">© 2026 Raquel Bomjardim</p>
