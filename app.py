@@ -16,7 +16,48 @@ st.markdown("""
         background: #0a0f1a !important;
     }
 
+    /* Esconde barra branca do topo */
+    header[data-testid="stHeader"] { display: none !important; }
+    #root > div:first-child { margin-top: 0 !important; }
+    .stApp { margin-top: 0 !important; }
+
     section[data-testid="stSidebar"] { display: none; }
+
+    /* Componentes nativos com visual dark */
+    div[data-testid="stNumberInput"] {
+        background: rgba(255,255,255,0.03) !important;
+        border-radius: 8px !important;
+        padding: 4px 0 !important;
+    }
+    div[data-testid="stFileUploader"] {
+        background: rgba(255,255,255,0.03) !important;
+        border: 1.5px dashed rgba(255,255,255,0.15) !important;
+        border-radius: 10px !important;
+        padding: 8px !important;
+    }
+    div[data-testid="stFileUploader"] label,
+    div[data-testid="stFileUploader"] p,
+    div[data-testid="stFileUploader"] span { color: rgba(255,255,255,0.5) !important; }
+    div[data-testid="stFileUploader"] small { color: rgba(255,255,255,0.3) !important; }
+    div[data-testid="stNumberInput"] label { color: rgba(255,255,255,0.5) !important; font-size: 13px !important; }
+    div[data-testid="stNumberInput"] input {
+        background: rgba(255,255,255,0.05) !important;
+        border: 0.5px solid rgba(255,255,255,0.15) !important;
+        color: white !important; border-radius: 8px !important;
+    }
+    div[data-testid="stColumns"] { padding: 0 48px !important; gap: 16px !important; }
+    .stDownloadButton > button {
+        width: 100% !important; padding: 14px !important; border-radius: 8px !important;
+        background: #378ADD !important; border: none !important; color: white !important;
+        font-size: 14px !important; font-weight: 500 !important;
+    }
+    div[data-testid="stSuccess"],
+    div[data-testid="stWarning"],
+    div[data-testid="stError"],
+    div[data-testid="stInfo"] {
+        margin: 0 48px !important; border-radius: 8px !important;
+        background: rgba(255,255,255,0.05) !important;
+    }
 
     .hero-nav {
         display: flex; align-items: center; justify-content: space-between;
@@ -127,21 +168,11 @@ st.markdown("""
     }
     .footer-text { color: rgba(255,255,255,0.25); font-size: 11px; margin: 0; }
 
-    /* Streamlit overrides */
-    .stFileUploader > div { background: rgba(255,255,255,0.03) !important; border: 1.5px dashed rgba(255,255,255,0.15) !important; border-radius: 10px !important; }
-    .stFileUploader label { color: rgba(255,255,255,0.6) !important; }
-    .stNumberInput label { color: rgba(255,255,255,0.6) !important; font-size: 13px !important; }
-    .stNumberInput input { background: rgba(255,255,255,0.05) !important; border: 0.5px solid rgba(255,255,255,0.15) !important; color: white !important; border-radius: 8px !important; }
-    .stSuccess, .stWarning, .stError, .stInfo { border-radius: 8px !important; }
-    .stDownloadButton > button {
-        width: 100% !important; padding: 14px !important; border-radius: 8px !important;
-        background: #378ADD !important; border: none !important; color: white !important;
-        font-size: 14px !important; font-weight: 500 !important;
-    }
     footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
+# ===== NAVBAR =====
 st.markdown("""
     <div class="hero-nav">
         <div class="hero-logo">
@@ -162,6 +193,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# ===== HERO =====
 st.markdown("""
     <div class="hero-grid">
         <div class="hero-left">
@@ -213,6 +245,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# ===== CARD POWER BI =====
 st.markdown("""
     <div class="bi-card">
         <div class="bi-card-icon">
@@ -228,6 +261,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# ===== SEÇÃO DE UPLOAD =====
 st.markdown('<div class="upload-section"><p class="upload-title">Gerar relatório</p>', unsafe_allow_html=True)
 
 MESES = {
@@ -253,6 +287,7 @@ with col2:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+# ===== PROCESSAMENTO =====
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
@@ -370,6 +405,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
 
+# ===== FOOTER =====
 st.markdown("""
     <div class="footer">
         <p class="footer-text">© 2026 Raquel Bomjardim</p>
