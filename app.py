@@ -29,16 +29,25 @@ st.markdown("""
         border-radius: 8px !important;
         padding: 4px 0 !important;
     }
-    div[data-testid="stFileUploader"] {
+    div[data-testid="stFileUploader"] > div {
         background: rgba(255,255,255,0.03) !important;
-        border: 1.5px dashed rgba(255,255,255,0.15) !important;
+        border: 1.5px dashed rgba(255,255,255,0.12) !important;
         border-radius: 10px !important;
-        padding: 8px !important;
+    }
+    div[data-testid="stFileUploader"] section {
+        background: transparent !important;
+        border: none !important;
     }
     div[data-testid="stFileUploader"] label,
     div[data-testid="stFileUploader"] p,
     div[data-testid="stFileUploader"] span { color: rgba(255,255,255,0.5) !important; }
     div[data-testid="stFileUploader"] small { color: rgba(255,255,255,0.3) !important; }
+    div[data-testid="stFileUploader"] button {
+        background: rgba(255,255,255,0.08) !important;
+        color: rgba(255,255,255,0.7) !important;
+        border: 0.5px solid rgba(255,255,255,0.15) !important;
+        border-radius: 6px !important;
+    }
     div[data-testid="stNumberInput"] label { color: rgba(255,255,255,0.5) !important; font-size: 13px !important; }
     div[data-testid="stNumberInput"] input {
         background: rgba(255,255,255,0.05) !important;
@@ -139,11 +148,17 @@ st.markdown("""
     .bi-badge span { font-size: 11px; color: #F37820; font-weight: 500; }
 
     .upload-section {
-        margin: 0 48px 32px; padding: 32px;
+        margin: 0 48px 0; padding: 32px 32px 0;
         background: rgba(255,255,255,0.02); border: 0.5px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
+        border-top-left-radius: 16px; border-top-right-radius: 16px;
     }
-    .upload-title { color: white; font-size: 16px; font-weight: 500; margin: 0 0 24px; }
+    .upload-section-bottom {
+        margin: 0 48px 32px; padding: 0 32px 32px;
+        background: rgba(255,255,255,0.02); border: 0.5px solid rgba(255,255,255,0.08);
+        border-top: none;
+        border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;
+    }
+    .upload-title { color: white; font-size: 16px; font-weight: 500; margin: 0 0 8px; }
 
     .resumo-grid {
         display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;
@@ -172,7 +187,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ===== NAVBAR =====
 st.markdown("""
     <div class="hero-nav">
         <div class="hero-logo">
@@ -184,16 +198,11 @@ st.markdown("""
             </div>
             <span class="hero-logo-text">Relatório Financeiro</span>
         </div>
-        <div class="hero-nav-links">
-            <span>Início</span>
-            <span>Como funciona</span>
-            <span>Contato</span>
-        </div>
-        <button class="hero-cta">Gerar relatório</button>
+        <div class="hero-nav-links"></div>
+        <button class="hero-cta" onclick="document.getElementById('gerar').scrollIntoView({behavior: 'smooth'})">Gerar relatório</button>
     </div>
 """, unsafe_allow_html=True)
 
-# ===== HERO =====
 st.markdown("""
     <div class="hero-grid">
         <div class="hero-left">
@@ -245,7 +254,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ===== CARD POWER BI =====
 st.markdown("""
     <div class="bi-card">
         <div class="bi-card-icon">
@@ -261,8 +269,8 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ===== SEÇÃO DE UPLOAD =====
-st.markdown('<div class="upload-section"><p class="upload-title">Gerar relatório</p>', unsafe_allow_html=True)
+st.markdown('<div id="gerar" class="upload-section"><p class="upload-title">Gerar relatório</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="upload-section-bottom">', unsafe_allow_html=True)
 
 MESES = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -285,9 +293,8 @@ with col2:
         type="xlsx"
     )
 
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)  
 
-# ===== PROCESSAMENTO =====
 if uploaded_file is not None:
     with st.spinner("⏳ Processando relatório..."):
         try:
@@ -405,7 +412,6 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
 
-# ===== FOOTER =====
 st.markdown("""
     <div class="footer">
         <p class="footer-text">© 2026 Raquel Bomjardim</p>
