@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
-from relatorios import gerar_relatorios
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
+from relatorios import gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos
 from estilos import aplicar_estilos
 
 st.set_page_config(page_title="Relatório Financeiro", page_icon="🗂️", layout="centered")
@@ -46,6 +49,33 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+with open("config.yaml") as f:
+    config = yaml.load(f, Loader=SafeLoader)
+
+authenticator = stauth.Authenticate(
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"],
+)
+
+try:
+    authenticator.login()
+except Exception as e:
+    st.error(e)
+
+if st.session_state.get("authentication_status") is False:
+    st.error("Usuário ou senha incorretos.")
+    st.stop()
+
+if st.session_state.get("authentication_status") is None:
+    st.warning("Por favor, insira seu usuário e senha.")
+    st.stop()
+
+with st.sidebar:
+    st.write(f"Olá, **{st.session_state.get('name')}**!")
+    authenticator.logout("Sair")
+
 st.markdown("""
     <div class="banner">
         <h1>Relatório Financeiro</h1>
@@ -68,10 +98,7 @@ st.markdown("""
 
 provisao_vinicius = st.number_input(
     "Provisão de repasse (R$) (deixe 0 se não houver)",
-    min_value=0.0,
-    value=0.0,
-    step=100.0,
-    format="%.2f"
+    min_value=0.0, value=0.0, step=100.0, format="%.2f"
 )
 
 uploaded_file = st.file_uploader("Selecione o arquivo exportado do Astrea (.xlsx)", type="xlsx")
@@ -112,7 +139,6 @@ if uploaded_file is not None:
                 mes_ano      = ""
                 nome_arquivo = "Relatorio_Completo.xlsx"
 
-            from relatorios import gerar_ranking_clientes, gerar_centro_custos
             dre_operacional, nao_contabil, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df, provisao_vinicius=provisao_vinicius)
             ranking = gerar_ranking_clientes(df)
             centros = gerar_centro_custos(df)
@@ -129,20 +155,15 @@ if uploaded_file is not None:
                 workbook  = writer.book
                 fmts = aplicar_estilos(workbook, writer, dre_operacional, nao_contabil, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
 
-                ws_rank  = writer.sheets["Ranking_Clientes"]
-                rf       = fmts["rank_fmts"]
+                ws_rank = writer.sheets["Ranking_Clientes"]
+                rf = fmts["rank_fmts"]
                 for i, row in ranking.reset_index().iterrows():
-                    r      = i + 3
-                    zebra  = (r % 2 == 0)
-                    pos_f  = rf["pos_zebra"] if zebra else rf["pos_num"]
-                    txt_f  = rf["zebra_txt"] if zebra else rf["plain"]
-                    val_f  = rf["zebra_val"] if zebra else rf["moeda"]
-                    pct_f  = rf["pct_zebra"] if zebra else rf["pct"]
-                    ws_rank.write(r, 0, row["POS."], pos_f)
-                    ws_rank.write(r, 1, row["CLIENTE"], txt_f)
-                    ws_rank.write(r, 2, row["RECEITA (R$)"], val_f)
-                    ws_rank.write(r, 3, row["PARTICIPAÇÃO (%)"] / 100, pct_f)
-
+                    r = i + 3
+                    zebra = (r % 2 == 0)
+                    ws_rank.write(r, 0, row["POS."], rf["pos_zebra"] if zebra else rf["pos_num"])
+                    ws_rank.write(r, 1, row["CLIENTE"], rf["zebra_txt"] if zebra else rf["plain"])
+                    ws_rank.write(r, 2, row["RECEITA (R$)"], rf["zebra_val"] if zebra else rf["moeda"])
+                    ws_rank.write(r, 3, row["PARTICIPAÇÃO (%)"] / 100, rf["pct_zebra"] if zebra else rf["pct"])
                 total_r = len(ranking) + 3
                 ws_rank.write(total_r, 0, "", rf["total_txt"])
                 ws_rank.write(total_r, 1, "TOTAL", rf["total_txt"])
@@ -150,9 +171,9 @@ if uploaded_file is not None:
                 ws_rank.write(total_r, 3, 1.0, rf["pct"])
 
                 ws_cc = writer.sheets["Centro_Custos"]
-                cf    = fmts["cc_fmts"]
+                cf = fmts["cc_fmts"]
                 for i, row in centros.iterrows():
-                    r     = i + 3
+                    r = i + 3
                     zebra = (r % 2 == 0)
                     is_total = str(row["CENTRO DE CUSTO"]) == "TOTAL"
                     txt_f = cf["total_txt"] if is_total else (cf["zebra_txt"] if zebra else cf["plain"])
@@ -166,9 +187,9 @@ if uploaded_file is not None:
                     else:
                         res_f = cf["res_nz"] if zebra else cf["res_neg"]
                     ws_cc.write(r, 0, row["CENTRO DE CUSTO"], txt_f)
-                    ws_cc.write(r, 1, row["RECEITA (R$)"],    rec_f)
-                    ws_cc.write(r, 2, row["DESPESA (R$)"],    dep_f)
-                    ws_cc.write(r, 3, res,                     res_f)
+                    ws_cc.write(r, 1, row["RECEITA (R$)"], rec_f)
+                    ws_cc.write(r, 2, row["DESPESA (R$)"], dep_f)
+                    ws_cc.write(r, 3, res, res_f)
 
             st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
 
