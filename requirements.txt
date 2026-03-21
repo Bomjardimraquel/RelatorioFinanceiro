@@ -2,5 +2,3 @@ pandas
 xlsxwriter
 openpyxl
 streamlit
-streamlit-authenticator
-pyyaml
