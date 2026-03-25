@@ -79,7 +79,7 @@ with st.sidebar:
 st.markdown("""
     <div class="banner">
         <h1>Relatório Financeiro</h1>
-        <p>Faça o upload do relatório do Astrea e receba análises completas em Excel</p>
+        <p>Envie o export do seu sistema e receba análises financeiras completas em Excel</p>
     </div>
 """, unsafe_allow_html=True)
 
