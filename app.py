@@ -127,8 +127,11 @@ if uploaded_file is not None:
             }
             cats_desconhecidas = set(df["Categoria"].dropna().unique()) - mapa_categorias
             if cats_desconhecidas:
-                st.warning(f"⚠️ Categorias não reconhecidas (serão ignoradas): **{', '.join(sorted(cats_desconhecidas))}**")
-
+                valor_ignorado = df[df["Categoria"].isin(cats_desconhecidas)]["Valor"].sum()
+                st.warning(f"⚠️ Categorias não reconhecidas (serão ignoradas): **{', '.join(sorted(cats_desconhecidas))}**. "
+                           f"Total de lançamentos ignorados: **{formatar_brl(abs(valor_ignorado))}**. "
+                           f"Verifique se o nome foi alterado no sistema."
+                          )
             try:
                 primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
                 mes_nome      = MESES[primeira_data.month]
