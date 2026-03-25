@@ -87,7 +87,7 @@ st.markdown("""
     <div class="instrucoes">
         <h4>Como usar</h4>
         <ol>
-            <li>Acesse o <strong>Astrea</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
+            <li>Acesse o <strong>seu sistema de gestão</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
             <li>Certifique-se de que o arquivo contém apenas lançamentos do mês desejado</li>
             <li>Se houver provisão de repasse ainda não lançada, informe o valor abaixo</li>
             <li>Faça o upload e aguarde o processamento</li>
@@ -101,8 +101,8 @@ provisao_vinicius = st.number_input(
     min_value=0.0, value=0.0, step=100.0, format="%.2f"
 )
 
-uploaded_file = st.file_uploader("Selecione o arquivo exportado do Astrea (.xlsx)", type="xlsx")
-st.info("Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
+uploaded_file = st.file_uploader("Selecione o arquivo exportado do seus sistema de gestão (.xlsx)", type="xlsx")
+st.info("Envie apenas o relatório exportado do seu sistema de gestão em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
 MESES = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
