@@ -150,7 +150,7 @@ if uploaded_file is not None:
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
                 nao_contabil.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+7, index=False)
-                conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False, startrow=2)
+                conciliacao.to_excel(writer, sheet_name="Receitas", index=False, startrow=2)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False, startrow=2)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False, startrow=2)
                 ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)
