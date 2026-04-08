@@ -120,7 +120,7 @@ if uploaded_file is not None:
 
             mapa_categorias = {
                 "Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
-                "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa Fixa",
+                "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa do cliente", "Despesa Fixa",
                 "Despesa Variável", "Repasse", "Participação em contrato",
                 "Folha de pagamento", "Diversos", "Distribuição de lucros",
                 "Participação Vinicius Fraga", "Transferência", "Saldo inicial"
