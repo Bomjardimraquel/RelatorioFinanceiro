@@ -2,7 +2,7 @@ import pandas as pd
 from funcoes import soma, soma_entradas
 
 CATEGORIAS_DESPESA = [
-    "Despesa Fixa", "Despesa Variável", "Despesa bancária",
+    "Despesa do cliente", "Despesa Fixa", "Despesa Variável", "Despesa bancária",
     "Repasse", "Participação em contrato", "Folha de pagamento", "Impostos",
 ]
 
@@ -47,19 +47,20 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     despesas_variaveis = soma(df_receita, ["Despesa Variável"])
     repasse            = soma(df_receita, ["Repasse"])
     participacao       = soma(df_receita, ["Participação em contrato"])
+    desp_cliente       = soma(df_receita, ["Despesa do cliente"])
     repasse_clientes   = repasse + participacao
     provisao           = -abs(provisao_vinicius) if provisao_vinicius else 0.0
 
     receita_liquida       = receita_bruta + impostos
     lucro_bruto           = receita_liquida + folha
-    resultado_operacional = lucro_bruto + desp_bancaria + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
+    resultado_operacional = lucro_bruto + desp_bancaria + desp_cliente + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
 
     contas  = [
         "Receita Bruta", "Honorários", "Êxito", "Contratado/Partido",
         "Sucumbenciais", "Compensações", "Diversos",
         "(-) Impostos", "Receita Líquida",
         "(-) Folha de Pagamento",
-        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesas Fixas", "(-) Despesas Variáveis",
+        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesa do cliente", "(-) Despesas Fixas", "(-) Despesas Variáveis",
         "(-) Participação em Contratos", "(-) Repasse",
     ]
     valores = [
@@ -67,7 +68,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         sucumbenciais, compensacoes, diversos_rec,
         impostos, receita_liquida,
         folha,
-        lucro_bruto, desp_bancaria, despesas_fixas, despesas_variaveis,
+        lucro_bruto, desp_bancaria, desp_cliente, despesas_fixas, despesas_variaveis,
         participacao, repasse,
     ]
     if provisao_vinicius:
