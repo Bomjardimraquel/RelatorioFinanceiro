@@ -1,10 +1,10 @@
 # Relatório Financeiro
 
-Aplicativo web desenvolvido em Python/Streamlit que transforma o relatório financeiro exportado do sistema jurídico **Astrea** em um relatório Excel completo e formatado automaticamente.
+Aplicativo web desenvolvido em Python/Streamlit que transforma o relatório financeiro exportado de um sistema jurídico em um relatório Excel completo e formatado automaticamente.
 
 ## O que o programa faz
 
-O usuário faz upload do arquivo `.xlsx` exportado do Astrea e o sistema gera um relatório profissional com as seguintes análises:
+O usuário faz upload do arquivo `.xlsx` exportado do sistemas de gestão e o sistema gera um relatório profissional com as seguintes análises:
 
 - **DRE Operacional:** Demonstrativo de Resultado do Exercício completo
 - **Movimento Não Contábil:** Distribuição de lucros e resultado de investimentos

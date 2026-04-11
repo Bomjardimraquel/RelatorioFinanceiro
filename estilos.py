@@ -45,8 +45,9 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     zebra_txt_fmt= fmt(bg_color="#EEF2F7")
     plain_fmt    = fmt()
 
+    # ===== DRE_Operacional =====
     ws_dre = writer.sheets["DRE_Operacional"]
-    ws_dre.set_row(1, 30)  
+    ws_dre.set_row(1, 30)
     adicionar_titulo(ws_dre, workbook, titulo_aba, 2)
 
     for col_num, value in enumerate(dre_operacional.columns.values):
@@ -96,6 +97,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     ws_dre.set_column(0, 0, 40)
     ws_dre.set_column(1, 1, 20)
 
+    # ===== DESPESAS =====
     ws_desp = writer.sheets["Despesas"]
     adicionar_titulo(ws_desp, workbook, titulo_aba, 5)
 
@@ -136,13 +138,13 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     ws_desp.set_column(3, 3, 25)
     ws_desp.set_column(4, 4, 18)
 
-    ws_conc = writer.sheets["Conciliacao"]
-    adicionar_titulo(ws_conc, workbook, titulo_aba, 2)
+    # ===== RECEITAS =====
+    ws_conc = writer.sheets["Receitas"]
+    adicionar_titulo(ws_conc, workbook, titulo_aba, 5)
 
     total_fmt3  = fmt(bold=True, bg_color="#D9E1F2", font_color="#1F3864", num_format=moeda, border=1)
     total_txt3  = fmt(bold=True, bg_color="#D9E1F2", font_color="#1F3864", border=1)
     pos_fmt3    = fmt(font_color="#375623", num_format=moeda)
-    neg_fmt3    = fmt(font_color="#C00000", num_format=moeda)
     zebra3      = fmt(bg_color="#EEF2F7")
     zebra_val3  = fmt(bg_color="#EEF2F7", num_format=moeda)
     plain_val3  = fmt(num_format=moeda)
@@ -151,27 +153,31 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
         ws_conc.write(2, col_num, value, header_fmt)
     ws_conc.set_row(2, 22)
 
-    for row_num, conta in enumerate(conciliacao["Conta"], start=3):
-        valor = conciliacao.loc[row_num-3, "Valor (R$)"]
+    for row_num, descricao in enumerate(conciliacao["DESCRIÇÃO"], start=3):
+        valor = conciliacao.loc[row_num-3, "VALORES"]
         is_zebra = (row_num % 2 == 0)
         txt_f = zebra3 if is_zebra else plain_fmt
         val_f = zebra_val3 if is_zebra else plain_val3
-        if str(conta).startswith("Total"):
-            ws_conc.write(row_num, 0, conta, total_txt3)
-            ws_conc.write(row_num, 1, valor, total_fmt3)
-        elif valor > 0:
-            ws_conc.write(row_num, 0, conta, txt_f)
-            ws_conc.write(row_num, 1, valor, pos_fmt3)
-        elif valor < 0:
-            ws_conc.write(row_num, 0, conta, txt_f)
-            ws_conc.write(row_num, 1, valor, neg_fmt3)
+        if str(descricao).startswith("TOTAL"):
+            for c in range(5):
+                ws_conc.write(row_num, c, None, total_txt3)
+            ws_conc.write(row_num, 2, descricao, total_txt3)
+            ws_conc.write(row_num, 4, valor, total_fmt3)
         else:
-            ws_conc.write(row_num, 0, conta, txt_f)
-            ws_conc.write(row_num, 1, valor, val_f)
+            row_data = conciliacao.loc[row_num-3]
+            ws_conc.write(row_num, 0, str(row_data["DATA"]) if row_data["DATA"] else "", txt_f)
+            ws_conc.write(row_num, 1, row_data["CLIENTE"] or "", txt_f)
+            ws_conc.write(row_num, 2, descricao, txt_f)
+            ws_conc.write(row_num, 3, row_data["CLASSIFICAÇÃO"] or "", txt_f)
+            ws_conc.write(row_num, 4, valor, pos_fmt3 if valor > 0 else val_f)
 
-    ws_conc.set_column(0, 0, 55)
-    ws_conc.set_column(1, 1, 20)
+    ws_conc.set_column(0, 0, 14)
+    ws_conc.set_column(1, 1, 45)
+    ws_conc.set_column(2, 2, 55)
+    ws_conc.set_column(3, 3, 25)
+    ws_conc.set_column(4, 4, 18)
 
+    # ===== BANCOS =====
     ws_bancos = writer.sheets["Bancos"]
     adicionar_titulo(ws_bancos, workbook, titulo_aba, 6)
 
@@ -190,12 +196,12 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     for row_num in range(1, len(bancos_pivot)+1):
         r = row_num + 2
         is_zebra = (r % 2 == 0)
-        banco        = bancos_pivot.loc[row_num-1, "BANCO"]
-        saldo_inicial= bancos_pivot.loc[row_num-1, "Saldo Inicial (R$)"]
-        entradas     = bancos_pivot.loc[row_num-1, "ENTRADAS (R$)"]
-        saidas       = bancos_pivot.loc[row_num-1, "SAÍDAS (R$)"]
-        saldo_mes    = bancos_pivot.loc[row_num-1, "Saldo do Mês (R$)"]
-        saldo_final  = bancos_pivot.loc[row_num-1, "Saldo Final (R$)"]
+        banco         = bancos_pivot.loc[row_num-1, "BANCO"]
+        saldo_inicial = bancos_pivot.loc[row_num-1, "Saldo Inicial (R$)"]
+        entradas      = bancos_pivot.loc[row_num-1, "ENTRADAS (R$)"]
+        saidas        = bancos_pivot.loc[row_num-1, "SAÍDAS (R$)"]
+        saldo_mes     = bancos_pivot.loc[row_num-1, "Saldo do Mês (R$)"]
+        saldo_final   = bancos_pivot.loc[row_num-1, "Saldo Final (R$)"]
 
         b_fmt = zebra_b if is_zebra else banco_fmt
         e_fmt = zebra_e if is_zebra else entrada_fmt
@@ -211,6 +217,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     ws_bancos.set_column(0, 0, 30)
     ws_bancos.set_column(1, 5, 20)
 
+    # ===== RANKING_CLIENTES =====
     ws_rank = writer.sheets["Ranking_Clientes"]
     adicionar_titulo(ws_rank, workbook, titulo_aba, 4)
 
@@ -218,20 +225,18 @@ def aplicar_estilos(workbook, writer, dre_operacional, destinacao, resumo, despe
     pct_zebra   = fmt(bg_color="#EEF2F7", num_format="0.0\"%\"")
     pos_num_fmt = fmt(bold=True, align="center", font_color="#1F3864")
     pos_zebra   = fmt(bold=True, align="center", font_color="#1F3864", bg_color="#EEF2F7")
-    bar_fmt     = fmt(bg_color="#2E75B6", font_color="white", bold=True, align="center")
 
     headers_rank = ["POS.", "CLIENTE", "RECEITA (R$)", "PARTICIPAÇÃO (%)"]
     for c, h in enumerate(headers_rank):
         ws_rank.write(2, c, h, header_fmt)
     ws_rank.set_row(2, 22)
 
-    from relatorios import gerar_ranking_clientes as _grc
-
     ws_rank.set_column(0, 0, 6)
     ws_rank.set_column(1, 1, 45)
     ws_rank.set_column(2, 2, 18)
     ws_rank.set_column(3, 3, 18)
 
+    # ===== CENTRO_CUSTOS =====
     ws_cc = writer.sheets["Centro_Custos"]
     adicionar_titulo(ws_cc, workbook, titulo_aba, 4)
 

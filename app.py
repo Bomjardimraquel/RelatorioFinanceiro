@@ -79,7 +79,7 @@ with st.sidebar:
 st.markdown("""
     <div class="banner">
         <h1>Relatório Financeiro</h1>
-        <p>Faça o upload do relatório do Astrea e receba análises completas em Excel</p>
+        <p>Envie o export do seu sistema e receba análises financeiras completas em Excel</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -87,7 +87,7 @@ st.markdown("""
     <div class="instrucoes">
         <h4>Como usar</h4>
         <ol>
-            <li>Acesse o <strong>Astrea</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
+            <li>Acesse o <strong>seu sistema de gestão</strong> e exporte o relatório financeiro do mês em formato <strong>.xlsx</strong></li>
             <li>Certifique-se de que o arquivo contém apenas lançamentos do mês desejado</li>
             <li>Se houver provisão de repasse ainda não lançada, informe o valor abaixo</li>
             <li>Faça o upload e aguarde o processamento</li>
@@ -101,8 +101,8 @@ provisao_vinicius = st.number_input(
     min_value=0.0, value=0.0, step=100.0, format="%.2f"
 )
 
-uploaded_file = st.file_uploader("Selecione o arquivo exportado do Astrea (.xlsx)", type="xlsx")
-st.info("Envie apenas o relatório exportado do Astrea em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
+uploaded_file = st.file_uploader("Selecione o arquivo exportado do seus sistema de gestão (.xlsx)", type="xlsx")
+st.info("Envie apenas o relatório exportado do seu sistema de gestão em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
 MESES = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -120,7 +120,7 @@ if uploaded_file is not None:
 
             mapa_categorias = {
                 "Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
-                "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa Fixa",
+                "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa do cliente", "Despesa Fixa",
                 "Despesa Variável", "Repasse", "Participação em contrato",
                 "Folha de pagamento", "Diversos", "Distribuição de lucros",
                 "Participação Vinicius Fraga", "Transferência", "Saldo inicial"
@@ -150,7 +150,7 @@ if uploaded_file is not None:
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
                 nao_contabil.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+7, index=False)
-                conciliacao.to_excel(writer, sheet_name="Conciliacao", index=False, startrow=2)
+                conciliacao.to_excel(writer, sheet_name="Receitas", index=False, startrow=2)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False, startrow=2)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False, startrow=2)
                 ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)

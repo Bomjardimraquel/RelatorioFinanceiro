@@ -2,7 +2,7 @@ import pandas as pd
 from funcoes import soma, soma_entradas
 
 CATEGORIAS_DESPESA = [
-    "Despesa Fixa", "Despesa Variável", "Despesa bancária",
+    "Despesa do cliente", "Despesa Fixa", "Despesa Variável", "Despesa bancária",
     "Repasse", "Participação em contrato", "Folha de pagamento", "Impostos",
 ]
 
@@ -47,19 +47,20 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     despesas_variaveis = soma(df_receita, ["Despesa Variável"])
     repasse            = soma(df_receita, ["Repasse"])
     participacao       = soma(df_receita, ["Participação em contrato"])
+    desp_cliente       = soma(df_receita, ["Despesa do cliente"])
     repasse_clientes   = repasse + participacao
     provisao           = -abs(provisao_vinicius) if provisao_vinicius else 0.0
 
     receita_liquida       = receita_bruta + impostos
     lucro_bruto           = receita_liquida + folha
-    resultado_operacional = lucro_bruto + desp_bancaria + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
+    resultado_operacional = lucro_bruto + desp_bancaria + desp_cliente + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
 
     contas  = [
         "Receita Bruta", "Honorários", "Êxito", "Contratado/Partido",
         "Sucumbenciais", "Compensações", "Diversos",
         "(-) Impostos", "Receita Líquida",
         "(-) Folha de Pagamento",
-        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesas Fixas", "(-) Despesas Variáveis",
+        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesa do Cliente", "(-) Despesas Fixas", "(-) Despesas Variáveis",
         "(-) Participação em Contratos", "(-) Repasse",
     ]
     valores = [
@@ -67,7 +68,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         sucumbenciais, compensacoes, diversos_rec,
         impostos, receita_liquida,
         folha,
-        lucro_bruto, desp_bancaria, despesas_fixas, despesas_variaveis,
+        lucro_bruto, desp_bancaria, desp_cliente, despesas_fixas, despesas_variaveis,
         participacao, repasse,
     ]
     if provisao_vinicius:
@@ -91,34 +92,58 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Valor (R$)": [resultado_operacional, total_dist, total_invest]
     })
 
-    receita_fixa     = df_receita[(df_receita["Tipo"] == "Entrada") & (df_receita["Categoria"] == "Partido")][["Data", "Descricao", "Valor"]]
-    receita_variavel = df_receita[(df_receita["Tipo"] == "Entrada") & (df_receita["Categoria"].isin(["Honorários", "Exito", "Sucumbencial", "Compensação/liminar", "Contratado", "Diversos"]))][["Data", "Descricao", "Valor"]]
-    nc_entradas      = df_investimento[df_investimento["Tipo"] == "Entrada"][["Data", "Descricao", "Valor"]]
-    nc_saidas        = df_dist[df_dist["Tipo"] == "Saída"][["Data", "Descricao", "Valor"]]
+    CATS_RECEITA_ORDEM = [
+        ("Honorários",          "Honorários"),
+        ("Exito",               "Êxito"),
+        ("Contratado",          "Contratado"),
+        ("Partido",             "Partido"),
+        ("Sucumbencial",        "Sucumbencial"),
+        ("Compensação/liminar", "Compensação/Liminar"),
+        ("Diversos",            "Diversos"),
+    ]
 
-    conciliacao = pd.concat([
-        receita_fixa.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
-        pd.DataFrame({"Conta": ["Total Receita Fixa"], "Valor (R$)": [receita_fixa["Valor"].sum()]}),
-        receita_variavel.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
-        pd.DataFrame({"Conta": ["Total Receita Variável"], "Valor (R$)": [receita_variavel["Valor"].sum()]}),
-        nc_entradas.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
-        pd.DataFrame({"Conta": ["Total Resultado de Investimentos"], "Valor (R$)": [nc_entradas["Valor"].sum() if len(nc_entradas) else 0]}),
-        nc_saidas.rename(columns={"Descricao": "Conta", "Valor": "Valor (R$)"})[["Conta", "Valor (R$)"]],
-        pd.DataFrame({"Conta": ["Total Distribuição de Lucros"], "Valor (R$)": [nc_saidas["Valor"].sum() if len(nc_saidas) else 0]}),
-    ])
-    conciliacao["Valor (R$)"] = pd.to_numeric(conciliacao["Valor (R$)"], errors="coerce")
-    conciliacao = conciliacao[conciliacao["Conta"].notna() & (conciliacao["Conta"].str.strip() != "")]
-    conciliacao = conciliacao.drop_duplicates().reset_index(drop=True)
+    blocos = []
+    for cat, label in CATS_RECEITA_ORDEM:
+        bloco = df_receita[
+            (df_receita["Tipo"] == "Entrada") &
+            (df_receita["Categoria"] == cat)
+        ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]].copy()
+
+        if bloco.empty:
+            continue
+
+        total = pd.DataFrame([{
+            "Data": "",
+            "Pago para / Recebido de": "",
+            "Descricao": f"TOTAL {label.upper()}",
+            "Categoria": cat,
+            "Valor": bloco["Valor"].sum()
+        }])
+        blocos.append(bloco)
+        blocos.append(total)
+
+    if blocos:
+        conciliacao = pd.concat(blocos, ignore_index=True)
+    else:
+        conciliacao = pd.DataFrame(columns=["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"])
+
+    conciliacao = conciliacao.rename(columns={
+        "Data": "DATA",
+        "Pago para / Recebido de": "CLIENTE",
+        "Descricao": "DESCRIÇÃO",
+        "Categoria": "CLASSIFICAÇÃO",
+        "Valor": "VALORES"
+    })
 
     despesas = df_receita[
         (df_receita["Tipo"] == "Saída") & (df_receita["Categoria"].isin(CATEGORIAS_DESPESA))
     ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]]
-    totais                           = despesas.groupby("Categoria")["Valor"].sum().reset_index()
-    totais["Data"]                   = ""
+    totais                            = despesas.groupby("Categoria")["Valor"].sum().reset_index()
+    totais["Data"]                    = ""
     totais["Pago para / Recebido de"] = ""
-    totais["Descricao"]              = "TOTAL " + totais["Categoria"]
-    despesas_detalhadas              = pd.concat([despesas, totais], ignore_index=True)
-    despesas_detalhadas              = despesas_detalhadas.rename(columns={
+    totais["Descricao"]               = "TOTAL " + totais["Categoria"]
+    despesas_detalhadas               = pd.concat([despesas, totais], ignore_index=True)
+    despesas_detalhadas               = despesas_detalhadas.rename(columns={
         "Data": "DATA", "Pago para / Recebido de": "PAGO PARA",
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
     })
@@ -136,6 +161,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     bancos_pivot = bancos_pivot[[c for c in colunas if c in bancos_pivot.columns]]
 
     return dre_operacional, nao_contabil, resumo, conciliacao, despesas_detalhadas, bancos_pivot
+
 
 def gerar_ranking_clientes(df):
     """Ranking de receita por cliente, excluindo movimentos não contábeis."""
@@ -156,7 +182,7 @@ def gerar_ranking_clientes(df):
         .sort_values("RECEITA (R$)", ascending=False)
         .reset_index(drop=True)
     )
-    ranking.index += 1  
+    ranking.index += 1
     ranking.index.name = "POS."
     total = ranking["RECEITA (R$)"].sum()
     ranking["PARTICIPAÇÃO (%)"] = (ranking["RECEITA (R$)"] / total * 100).round(1)
