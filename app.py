@@ -142,18 +142,18 @@ if uploaded_file is not None:
                 mes_ano      = ""
                 nome_arquivo = "Relatorio_Completo.xlsx"
                 
-                if provisao_vinicius:
-                    linha_provisao = pd.DataFrame([{ 
-                        "Data": primeira_data.strftime("%d/%m/%Y") if mes_ano else "",
-                        "Conta Financeira": "",
-                        "Descricao": "Provisão Repasse Ex-Sócio",
-                        "Categoria": "Provisão",
-                        "Centro de custo": "",
-                        "Pago para / Recebido de": "",
-                        "Valor": -abs(provisao_vinicius),
-                        "Tipo": "Saída"
-                    }])
-                    df = pd.concat([df, linha_provisao], ignore_index=True)
+            if provisao_vinicius:
+                linha_provisao = pd.DataFrame([{ 
+                    "Data": primeira_data.strftime("%d/%m/%Y") if mes_ano else "",
+                    "Conta Financeira": "",
+                    "Descricao": "Provisão Repasse Ex-Sócio",
+                    "Categoria": "Provisão",
+                    "Centro de custo": "",
+                    "Pago para / Recebido de": "",
+                    "Valor": -abs(provisao_vinicius),
+                    "Tipo": "Saída"
+                }])
+                df = pd.concat([df, linha_provisao], ignore_index=True)
 
             dre_operacional, nao_contabil, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df, provisao_vinicius=provisao_vinicius)
             ranking = gerar_ranking_clientes(df)
