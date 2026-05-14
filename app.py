@@ -119,10 +119,10 @@ if uploaded_file is not None:
             df = pd.read_excel(uploaded_file)
 
             mapa_categorias = {
-                "Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
-                "Compensação/liminar", "Impostos", "Despesa bancária", "Despesa do cliente", "Despesa Fixa",
-                "Despesa Variável", "Repasse", "Participação em contrato",
-                "Folha de pagamento", "Diversos", "Distribuição de lucros",
+                "Honorários", "Honorário Avulso", "Honorário: Êxito", "Honorário: Contratado", "Honorário: Partido", "Honorário: Sucumbencial",
+                "Honorário: Compensação/liminar", "Despesa: Impostos", "Despesa bancária", "Despesa do cliente", "Despesa Fixa",
+                "Despesa Variável", "Despesas Diversos", "Repasse", "Despesa: Participação em contrato",
+                "Despesa: Folha de pagamento", "Diversos", "Distribuição de lucros", "Resultado de investimento",
                 "Participação Vinicius Fraga", "Transferência", "Saldo inicial"
             }
             cats_desconhecidas = set(df["Categoria"].dropna().unique()) - mapa_categorias

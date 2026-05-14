@@ -3,7 +3,8 @@ from funcoes import soma, soma_entradas
 
 CATEGORIAS_DESPESA = [
     "Despesa do cliente", "Despesa Fixa", "Despesa Variável", "Despesa bancária",
-    "Repasse", "Participação em contrato", "Folha de pagamento", "Impostos",
+    "Repasse", "Despesa: Participação em contrato", "Despesa: Folha de pagamento",
+    "Despesa: Impostos", "Despesas Diversos",
 ]
 
 KEYWORDS_INVESTIMENTO = ["resultado de investimento", "resutado de investimento", "rendimento"]
@@ -15,14 +16,17 @@ def eh_investimento(descricao):
 
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
-    mask_invest     = (df["Categoria"] == "Diversos") & (df["Descricao"].apply(eh_investimento))
+    # Separa resultado de investimento — agora é categoria própria
+    mask_invest     = (df["Categoria"] == "Resultado de investimento")
     df_investimento = df[mask_invest].copy()
     df_receita      = df[~mask_invest].copy()
 
+    # Separa distribuição de lucros
     mask_dist  = df_receita["Categoria"] == "Distribuição de lucros"
     df_dist    = df_receita[mask_dist].copy()
     df_receita = df_receita[~mask_dist].copy()
 
+    # Reclassifica fatura de cartão
     mask_cartao = (
         (df_receita["Categoria"] == "Transferência") &
         (df_receita["Tipo"] == "Saída") &
@@ -32,35 +36,39 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     df_cartao["Categoria"] = "Despesa Variável"
     df_receita             = pd.concat([df_receita[~mask_cartao], df_cartao], ignore_index=True)
 
-    honorarios     = soma_entradas(df_receita, ["Honorários"])
-    exito          = soma_entradas(df_receita, ["Exito"])
-    contratado     = soma_entradas(df_receita, ["Contratado", "Partido"])
-    sucumbenciais  = soma_entradas(df_receita, ["Sucumbencial"])
-    compensacoes   = soma_entradas(df_receita, ["Compensação/liminar"])
+    # ===== RECEITAS =====
+    honorarios     = soma_entradas(df_receita, ["Honorários", "Honorário Avulso"])
+    exito          = soma_entradas(df_receita, ["Honorário: Êxito"])
+    contratado     = soma_entradas(df_receita, ["Honorário: Contratado", "Honorário: Partido"])
+    sucumbenciais  = soma_entradas(df_receita, ["Honorário: Sucumbencial"])
+    compensacoes   = soma_entradas(df_receita, ["Honorário: Compensação/liminar"])
     diversos_rec   = soma_entradas(df_receita, ["Diversos"])
     receita_bruta  = honorarios + exito + contratado + sucumbenciais + compensacoes + diversos_rec
 
-    impostos           = soma(df_receita, ["Impostos"])
-    folha              = soma(df_receita, ["Folha de pagamento"])
+    # ===== DESPESAS =====
+    impostos           = soma(df_receita, ["Despesa: Impostos"])
+    folha              = soma(df_receita, ["Despesa: Folha de pagamento"])
     desp_bancaria      = soma(df_receita, ["Despesa bancária"])
     despesas_fixas     = soma(df_receita, ["Despesa Fixa"])
     despesas_variaveis = soma(df_receita, ["Despesa Variável"])
+    despesas_diversas  = soma(df_receita, ["Despesas Diversos"])
     repasse            = soma(df_receita, ["Repasse"])
-    participacao       = soma(df_receita, ["Participação em contrato"])
+    participacao       = soma(df_receita, ["Despesa: Participação em contrato"])
     desp_cliente       = soma(df_receita, ["Despesa do cliente"])
     repasse_clientes   = repasse + participacao
     provisao           = -abs(provisao_vinicius) if provisao_vinicius else 0.0
 
     receita_liquida       = receita_bruta + impostos
     lucro_bruto           = receita_liquida + folha
-    resultado_operacional = lucro_bruto + desp_bancaria + desp_cliente + despesas_fixas + despesas_variaveis + repasse_clientes + provisao
+    resultado_operacional = lucro_bruto + desp_bancaria + desp_cliente + despesas_fixas + despesas_variaveis + despesas_diversas + repasse_clientes + provisao
 
     contas  = [
         "Receita Bruta", "Honorários", "Êxito", "Contratado/Partido",
         "Sucumbenciais", "Compensações", "Diversos",
         "(-) Impostos", "Receita Líquida",
         "(-) Folha de Pagamento",
-        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesa do Cliente", "(-) Despesas Fixas", "(-) Despesas Variáveis",
+        "Lucro Bruto", "(-) Despesa Bancária", "(-) Despesa do Cliente",
+        "(-) Despesas Fixas", "(-) Despesas Variáveis", "(-) Despesas Diversas",
         "(-) Participação em Contratos", "(-) Repasse",
     ]
     valores = [
@@ -68,7 +76,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         sucumbenciais, compensacoes, diversos_rec,
         impostos, receita_liquida,
         folha,
-        lucro_bruto, desp_bancaria, desp_cliente, despesas_fixas, despesas_variaveis,
+        lucro_bruto, desp_bancaria, desp_cliente, despesas_fixas, despesas_variaveis, despesas_diversas,
         participacao, repasse,
     ]
     if provisao_vinicius:
@@ -92,14 +100,16 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Valor (R$)": [resultado_operacional, total_dist, total_invest]
     })
 
+    # ===== CONCILIAÇÃO (listagem de receitas por categoria) =====
     CATS_RECEITA_ORDEM = [
-        ("Honorários",          "Honorários"),
-        ("Exito",               "Êxito"),
-        ("Contratado",          "Contratado"),
-        ("Partido",             "Partido"),
-        ("Sucumbencial",        "Sucumbencial"),
-        ("Compensação/liminar", "Compensação/Liminar"),
-        ("Diversos",            "Diversos"),
+        ("Honorários",                  "Honorários"),
+        ("Honorário Avulso",            "Honorário Avulso"),
+        ("Honorário: Êxito",            "Êxito"),
+        ("Honorário: Contratado",       "Contratado"),
+        ("Honorário: Partido",          "Partido"),
+        ("Honorário: Sucumbencial",     "Sucumbencial"),
+        ("Honorário: Compensação/liminar", "Compensação/Liminar"),
+        ("Diversos",                    "Diversos"),
     ]
 
     blocos = []
@@ -135,6 +145,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Valor": "VALORES"
     })
 
+    # ===== DESPESAS DETALHADAS =====
     despesas = df_receita[
         (df_receita["Tipo"] == "Saída") & (df_receita["Categoria"].isin(CATEGORIAS_DESPESA))
     ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]]
@@ -148,6 +159,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
     })
 
+    # ===== BANCOS =====
     df_bancos    = pd.concat([df_receita, df_dist], ignore_index=True)
     bancos       = df_bancos.groupby(["Conta Financeira", "Tipo"])["Valor"].sum().reset_index()
     bancos_pivot = bancos.pivot_table(index="Conta Financeira", columns="Tipo", values="Valor", aggfunc="sum", fill_value=0).reset_index()
@@ -164,10 +176,11 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
 
 
 def gerar_ranking_clientes(df):
-    """Ranking de receita por cliente, excluindo movimentos não contábeis."""
-    cats_receita = ["Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
-                    "Compensação/liminar", "Diversos"]
-    mask_invest = (df["Categoria"] == "Diversos") & (df["Descricao"].apply(eh_investimento))
+    cats_receita = ["Honorários", "Honorário Avulso", "Honorário: Êxito",
+                    "Honorário: Contratado", "Honorário: Partido",
+                    "Honorário: Sucumbencial", "Honorário: Compensação/liminar", "Diversos"]
+
+    mask_invest = (df["Categoria"] == "Resultado de investimento")
     df_rec = df[~mask_invest]
 
     ranking = (
@@ -190,13 +203,13 @@ def gerar_ranking_clientes(df):
 
 
 def gerar_centro_custos(df):
-    """Receita e despesa por centro de custo."""
-    cats_receita = ["Honorários", "Exito", "Contratado", "Partido", "Sucumbencial",
-                    "Compensação/liminar", "Diversos"]
+    cats_receita = ["Honorários", "Honorário Avulso", "Honorário: Êxito",
+                    "Honorário: Contratado", "Honorário: Partido",
+                    "Honorário: Sucumbencial", "Honorário: Compensação/liminar", "Diversos"]
     cats_despesa = ["Despesa Fixa", "Despesa Variável", "Despesa bancária",
-                    "Folha de pagamento", "Impostos"]
+                    "Despesa: Folha de pagamento", "Despesa: Impostos", "Despesas Diversos"]
 
-    mask_invest = (df["Categoria"] == "Diversos") & (df["Descricao"].apply(eh_investimento))
+    mask_invest = (df["Categoria"] == "Resultado de investimento")
     df_clean = df[~mask_invest]
 
     receita = (
