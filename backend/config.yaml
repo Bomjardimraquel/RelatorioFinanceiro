@@ -1,0 +1,21 @@
+credentials:
+  usernames:
+    Daniela_fraga:
+      email: tia@escritorio.com.br
+      first_name: Daniela
+      last_name: Fraga
+      logged_in: false
+      password: $2b$12$McZnbtWSeOBasRelH.er9.s7/8UwwrGRN8VpvCel/FQPRtaNh8WO6  
+      failed_login_attempts: 0
+    cliente2:
+      email: cliente2@escritorio.com.br
+      first_name: Cliente
+      last_name: Dois
+      logged_in: false
+      password: $2b$12$1Lh4EAlUhHCVzmQ2PTwZouLseUD57AvLR5GN5oykSnOqC8phDd2my
+      failed_login_attempts: 0
+
+cookie:
+  expiry_days: 7
+  key: relatorio_financeiro_secret_key_2026
+  name: relatorio_auth
