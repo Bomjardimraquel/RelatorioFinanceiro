@@ -3,7 +3,10 @@ import pandas as pd
 import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
-from relatorios import gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos
+from relatorios import (
+    gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos,
+    TODAS_CATEGORIAS_CONHECIDAS
+)
 from estilos import aplicar_estilos
 
 st.set_page_config(page_title="Relatório Financeiro", page_icon="🗂️", layout="centered")
@@ -91,7 +94,7 @@ st.markdown("""
             <li>Certifique-se de que o arquivo contém apenas lançamentos do mês desejado</li>
             <li>Se houver provisão de repasse ainda não lançada, informe o valor abaixo</li>
             <li>Faça o upload e aguarde o processamento</li>
-            <li>Baixe o relatório completo com DRE, Despesas, Conciliação e Bancos</li>
+            <li>Baixe o relatório completo com DRE, Despesas, Receitas e Bancos</li>
         </ol>
     </div>
 """, unsafe_allow_html=True)
@@ -101,7 +104,7 @@ provisao_vinicius = st.number_input(
     min_value=0.0, value=0.0, step=100.0, format="%.2f"
 )
 
-uploaded_file = st.file_uploader("Selecione o arquivo exportado do seus sistema de gestão (.xlsx)", type="xlsx")
+uploaded_file = st.file_uploader("Selecione o arquivo exportado do seu sistema de gestão (.xlsx)", type="xlsx")
 st.info("Envie apenas o relatório exportado do seu sistema de gestão em formato Excel (.xlsx). Outros arquivos não serão aceitos.")
 
 MESES = {
@@ -118,20 +121,16 @@ if uploaded_file is not None:
         try:
             df = pd.read_excel(uploaded_file)
 
-            mapa_categorias = {
-                "Honorários", "Honorário Avulso", "Honorário: Êxito", "Honorário: Contratado", "Honorário: Partido", "Honorário: Sucumbencial",
-                "Honorário: Compensação/liminar", "Despesa: Impostos", "Despesa bancária", "Despesa do cliente", "Despesa Fixa",
-                "Despesa Variável", "Despesas Diversos", "Repasse", "Despesa: Participação em contrato",
-                "Despesa: Folha de pagamento", "Diversos", "Distribuição de lucros", "Resultado de investimento",
-                "Participação Vinicius Fraga", "Transferência", "Saldo inicial"
-            }
-            cats_desconhecidas = set(df["Categoria"].dropna().unique()) - mapa_categorias
+            cats_desconhecidas = set(df["Categoria"].dropna().unique()) - set(TODAS_CATEGORIAS_CONHECIDAS)
             if cats_desconhecidas:
                 valor_ignorado = df[df["Categoria"].isin(cats_desconhecidas)]["Valor"].sum()
-                st.warning(f"⚠️ Categorias não reconhecidas (serão ignoradas): **{', '.join(sorted(cats_desconhecidas))}**. "
-                           f"Total de lançamentos ignorados: **{formatar_brl(abs(valor_ignorado))}**. "
-                           f"Verifique se o nome foi alterado no sistema."
-                          )
+                st.warning(
+                    f"⚠️ Categorias não reconhecidas (serão ignoradas): "
+                    f"**{', '.join(sorted(cats_desconhecidas))}**. "
+                    f"Total de lançamentos ignorados: **{formatar_brl(abs(valor_ignorado))}**. "
+                    f"Verifique se o nome foi alterado no sistema."
+                )
+
             try:
                 primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
                 mes_nome      = MESES[primeira_data.month]
@@ -141,9 +140,9 @@ if uploaded_file is not None:
             except Exception:
                 mes_ano      = ""
                 nome_arquivo = "Relatorio_Completo.xlsx"
-                
+
             if provisao_vinicius:
-                linha_provisao = pd.DataFrame([{ 
+                linha_provisao = pd.DataFrame([{
                     "Data": primeira_data.strftime("%d/%m/%Y") if mes_ano else "",
                     "Conta Financeira": "",
                     "Descricao": "Provisão Repasse Ex-Sócio",
@@ -155,47 +154,75 @@ if uploaded_file is not None:
                 }])
                 df = pd.concat([df, linha_provisao], ignore_index=True)
 
-            dre_operacional, nao_contabil, resumo, conciliacao, despesas_detalhadas, bancos_pivot = gerar_relatorios(df, provisao_vinicius=provisao_vinicius)
+            (
+                dre_operacional,
+                receita_financeira,
+                societario,
+                emprestimos,
+                transitorio,
+                conciliacao,
+                despesas_detalhadas,
+                bancos_pivot,
+            ) = gerar_relatorios(df, provisao_vinicius=provisao_vinicius)
+
             ranking = gerar_ranking_clientes(df)
             centros = gerar_centro_custos(df)
 
             with pd.ExcelWriter(nome_arquivo, engine="xlsxwriter") as writer:
+                # Movimentos (dados brutos)
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
+
+                # DRE — começa na linha 3 (startrow=2) por causa do título
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
-                nao_contabil.to_excel(writer, sheet_name="DRE_Operacional", startrow=len(dre_operacional)+7, index=False)
+
+                # Demais abas
                 conciliacao.to_excel(writer, sheet_name="Receitas", index=False, startrow=2)
                 despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False, startrow=2)
                 bancos_pivot.to_excel(writer, sheet_name="Bancos", index=False, startrow=2)
                 ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)
                 centros.to_excel(writer, sheet_name="Centro_Custos", index=False, startrow=2)
-                workbook  = writer.book
-                fmts = aplicar_estilos(workbook, writer, dre_operacional, nao_contabil, resumo, despesas_detalhadas, conciliacao, bancos_pivot, mes_ano=mes_ano)
 
+                workbook = writer.book
+                fmts = aplicar_estilos(
+                    workbook, writer,
+                    dre_operacional,
+                    receita_financeira,
+                    societario,
+                    emprestimos,
+                    transitorio,
+                    despesas_detalhadas,
+                    conciliacao,
+                    bancos_pivot,
+                    mes_ano=mes_ano,
+                )
+
+                # Ranking_Clientes — escrita manual para formatação
                 ws_rank = writer.sheets["Ranking_Clientes"]
                 rf = fmts["rank_fmts"]
                 for i, row in ranking.reset_index().iterrows():
-                    r = i + 3
+                    r     = i + 3
                     zebra = (r % 2 == 0)
-                    ws_rank.write(r, 0, row["POS."], rf["pos_zebra"] if zebra else rf["pos_num"])
-                    ws_rank.write(r, 1, row["CLIENTE"], rf["zebra_txt"] if zebra else rf["plain"])
-                    ws_rank.write(r, 2, row["RECEITA (R$)"], rf["zebra_val"] if zebra else rf["moeda"])
+                    ws_rank.write(r, 0, row["POS."],             rf["pos_zebra"] if zebra else rf["pos_num"])
+                    ws_rank.write(r, 1, row["CLIENTE"],          rf["zebra_txt"] if zebra else rf["plain"])
+                    ws_rank.write(r, 2, row["RECEITA (R$)"],     rf["zebra_val"] if zebra else rf["moeda"])
                     ws_rank.write(r, 3, row["PARTICIPAÇÃO (%)"] / 100, rf["pct_zebra"] if zebra else rf["pct"])
                 total_r = len(ranking) + 3
-                ws_rank.write(total_r, 0, "", rf["total_txt"])
-                ws_rank.write(total_r, 1, "TOTAL", rf["total_txt"])
+                ws_rank.write(total_r, 0, "",       rf["total_txt"])
+                ws_rank.write(total_r, 1, "TOTAL",  rf["total_txt"])
                 ws_rank.write(total_r, 2, ranking["RECEITA (R$)"].sum(), rf["total_val"])
-                ws_rank.write(total_r, 3, 1.0, rf["pct"])
+                ws_rank.write(total_r, 3, 1.0,      rf["pct"])
 
+                # Centro_Custos — escrita manual para formatação
                 ws_cc = writer.sheets["Centro_Custos"]
                 cf = fmts["cc_fmts"]
                 for i, row in centros.iterrows():
-                    r = i + 3
-                    zebra = (r % 2 == 0)
+                    r        = i + 3
+                    zebra    = (r % 2 == 0)
                     is_total = str(row["CENTRO DE CUSTO"]) == "TOTAL"
-                    txt_f = cf["total_txt"] if is_total else (cf["zebra_txt"] if zebra else cf["plain"])
-                    rec_f = cf["total_val"] if is_total else (cf["zebra_val"] if zebra else cf["moeda"])
-                    dep_f = cf["total_val"] if is_total else (cf["zebra_neg"] if zebra else cf["neg"])
-                    res   = row["RESULTADO (R$)"]
+                    txt_f    = cf["total_txt"] if is_total else (cf["zebra_txt"] if zebra else cf["plain"])
+                    rec_f    = cf["total_val"] if is_total else (cf["zebra_val"] if zebra else cf["moeda"])
+                    dep_f    = cf["total_val"] if is_total else (cf["zebra_neg"] if zebra else cf["neg"])
+                    res      = row["RESULTADO (R$)"]
                     if is_total:
                         res_f = cf["total_val"]
                     elif res >= 0:
@@ -203,20 +230,24 @@ if uploaded_file is not None:
                     else:
                         res_f = cf["res_nz"] if zebra else cf["res_neg"]
                     ws_cc.write(r, 0, row["CENTRO DE CUSTO"], txt_f)
-                    ws_cc.write(r, 1, row["RECEITA (R$)"], rec_f)
-                    ws_cc.write(r, 2, row["DESPESA (R$)"], dep_f)
-                    ws_cc.write(r, 3, res, res_f)
+                    ws_cc.write(r, 1, row["RECEITA (R$)"],    rec_f)
+                    ws_cc.write(r, 2, row["DESPESA (R$)"],    dep_f)
+                    ws_cc.write(r, 3, res,                    res_f)
 
             st.success(f"Relatório de **{mes_ano}** gerado com sucesso!")
 
-            receita_bruta         = dre_operacional.loc[dre_operacional["Conta"] == "Receita Bruta", "Valor (R$)"].values[0]
-            resultado_operacional = dre_operacional.loc[dre_operacional["Conta"] == "Resultado Operacional", "Valor (R$)"].values[0]
-            linhas_despesa        = ["(-) Impostos", "(-) Folha de Pagamento", "(-) Despesa Bancária", "(-) Despesas Fixas", "(-) Despesas Variáveis", "(-) Participação em Contratos", "(-) Repasse"]
-            total_despesas        = dre_operacional[dre_operacional["Conta"].isin(linhas_despesa)]["Valor (R$)"].sum()
-            if provisao_vinicius:
-                total_despesas += -abs(provisao_vinicius)
+            # ── Card de resumo ───────────────────────────────────────────────
+            receita_bruta = dre_operacional.loc[
+                dre_operacional["Conta"] == "RECEITAS OPERACIONAIS", "Valor (R$)"
+            ].values[0]
+            lucro_liquido = dre_operacional.loc[
+                dre_operacional["Conta"] == "LUCRO LÍQUIDO", "Valor (R$)"
+            ].values[0]
+            total_despesas = dre_operacional.loc[
+                dre_operacional["Conta"] == "DESPESAS OPERACIONAIS", "Valor (R$)"
+            ].values[0]
 
-            cor_resultado = "green" if resultado_operacional >= 0 else "red"
+            cor_resultado = "green" if lucro_liquido >= 0 else "red"
 
             st.markdown(f"""
                 <div class="resumo-card">
@@ -227,12 +258,12 @@ if uploaded_file is not None:
                             <div class="value blue">{formatar_brl(receita_bruta)}</div>
                         </div>
                         <div class="metric">
-                            <div class="label">Total Despesas</div>
+                            <div class="label">Despesas Operacionais</div>
                             <div class="value red">{formatar_brl(abs(total_despesas))}</div>
                         </div>
                         <div class="metric">
-                            <div class="label">Resultado Operacional</div>
-                            <div class="value {cor_resultado}">{formatar_brl(resultado_operacional)}</div>
+                            <div class="label">Lucro Líquido</div>
+                            <div class="value {cor_resultado}">{formatar_brl(lucro_liquido)}</div>
                         </div>
                     </div>
                 </div>
