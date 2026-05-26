@@ -15,7 +15,6 @@ CATS_RECEITA = [
 CATS_CUSTO_DIRETO = [
     "CUS | Parceiro Jurídico",
     "CUS | Participação contrato",
-    "REP | Repasse Cliente",
     "Despesa do cliente",
 ]
 
@@ -64,6 +63,7 @@ CATS_EMPRESTIMO = [
 
 CATS_TRANSITORIO = [
     "REP | Valores transitórios",
+    "REP | Repasse Cliente",
 ]
 
 # Todas as categorias conhecidas (para aviso de desconhecidas no app.py)
@@ -98,9 +98,8 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     # ── CUSTOS DIRETOS ───────────────────────────────────────────────────────
     cus_parceiro  = soma(df, ["CUS | Parceiro Jurídico"])
     cus_part      = soma(df, ["CUS | Participação contrato"])
-    rep_cliente   = soma(df, ["REP | Repasse Cliente"])
     desp_cliente  = soma(df, ["Despesa do cliente"])
-    total_custos  = cus_parceiro + cus_part + rep_cliente + desp_cliente
+    total_custos  = cus_parceiro + cus_part + desp_cliente
 
     lucro_bruto   = total_receita + total_custos
 
@@ -143,7 +142,6 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     for label, val in [
         ("Parceiro Jurídico",       cus_parceiro),
         ("Participação em Contrato", cus_part),
-        ("Repasse Cliente",         rep_cliente),
         ("Despesa do Cliente",      desp_cliente),
     ]:
         contas.append(f"  {label}")
@@ -207,11 +205,12 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     })
 
     # Valores transitórios
+    rep_cliente_val = df[df["Categoria"] == "REP | Repasse Cliente"]["Valor"].sum()
     val_tr_e = df[(df["Categoria"] == "REP | Valores transitórios") & (df["Tipo"] == "Entrada")]["Valor"].sum()
     val_tr_s = df[(df["Categoria"] == "REP | Valores transitórios") & (df["Tipo"] == "Saída")]["Valor"].sum()
     transitorio = pd.DataFrame({
-        "Descrição": ["Entradas Transitórias", "Saídas Transitórias", "SALDO TRANSITÓRIO"],
-        "Valor (R$)": [val_tr_e, val_tr_s, val_tr_e + val_tr_s]
+        "Descrição": ["Repasse Cliente", "Entradas Transitórias", "Saídas Transitórias", "SALDO TRANSITÓRIO"],
+        "Valor (R$)": [rep_cliente_val, val_tr_e, val_tr_s, rep_cliente_val + val_tr_e + val_tr_s]
     })
 
     # Aba Receitas (listagem detalhada) ────────────────────────────────────
