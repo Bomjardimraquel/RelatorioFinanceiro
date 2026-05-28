@@ -8,7 +8,7 @@ CATS_RECEITA = [
     "REC | Honorário Sucumbencial",
     "REC | Honorário Êxito",
     "REC | Honorário Compensação/liminar",
-    "REC | Reembolso cliente"
+    "REC | Reembolso cliente",
 ]
 
 CATS_CUSTO_DIRETO = [
@@ -16,7 +16,7 @@ CATS_CUSTO_DIRETO = [
     "CUS | Participação contrato",
     "Despesa do cliente",
     "CUS | Participação Vinicius Fraga",
-    "CUS | Diligencia"
+    "CUS | Diligencia",
 ]
 
 CATS_DESPESA_OP = [
@@ -46,7 +46,8 @@ CATS_DESPESA_OP = [
     "DES | Não Classificado", 
     "DES | Segurança", 
     "DES | Token/OAB", 
-    "DES | Tráfego pago"
+    "DES | Tráfego pago",
+    "DES | Despesa Bancária",
 ]
 
 CATS_IMPOSTO = [
@@ -68,10 +69,10 @@ CATS_SOCIETARIO = [
 ]
 
 CATS_EMPRESTIMO = [
-    "FIN | Empréstimo bancário",
+    "FIN | Empréstimo Bancário",
     "FIN | Pagamento Empréstimo",
     "FIN | Consórcio Principal",
-    "FIN | Juros bancários",
+    "FIN | Juros Bancários",
 ]
 
 CATS_TRANSITORIO = [
