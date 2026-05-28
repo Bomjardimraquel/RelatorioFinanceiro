@@ -1,8 +1,6 @@
 import pandas as pd
 from funcoes import soma, soma_entradas
 
-# ── Categorias do Astrea (prefixos novos) ────────────────────────────────────
-
 CATS_RECEITA = [
     "REC | Honorário Avulso",
     "REC | Honorário Contratado",
@@ -10,12 +8,15 @@ CATS_RECEITA = [
     "REC | Honorário Sucumbencial",
     "REC | Honorário Êxito",
     "REC | Honorário Compensação/liminar",
+    "REC | Reembolso cliente"
 ]
 
 CATS_CUSTO_DIRETO = [
     "CUS | Parceiro Jurídico",
     "CUS | Participação contrato",
     "Despesa do cliente",
+    "CUS | Participação Vinicius Fraga",
+    "CUS | Diligencia"
 ]
 
 CATS_DESPESA_OP = [
@@ -36,20 +37,30 @@ CATS_DESPESA_OP = [
     "DES | Software Jurídico",
     "DES | Telefonia",
     "DES | Uber/Combustível",
-]
-
-CATS_RESULTADO_FIN = [
-    "DES | Despesa Bancária",
+    "DES | Material Escritório",
+    "DES | Bancaria", 
+    "DES | Certificado digital", 
+    "DES | Consultoria", 
+    "DES | Internet", 
+    "DES | Manutenção",  
+    "DES | Não Classificado", 
+    "DES | Segurança", 
+    "DES | Token/OAB", 
+    "DES | Tráfego pago"
 ]
 
 CATS_IMPOSTO = [
     "IMP | Simples Nacional",
     "IMP | IPTU",
+    "IMP | INSS"
 ]
 
 CATS_RECEITA_FIN = [
     "REC | Receita Financeira",
+    "REC | Venda ativo",
 ]
+
+CATS_RESULTADO_FIN = []
 
 CATS_SOCIETARIO = [
     "SOC | Distribuição Lucros",
@@ -57,8 +68,10 @@ CATS_SOCIETARIO = [
 ]
 
 CATS_EMPRESTIMO = [
+    "FIN | Empréstimo bancário",
     "FIN | Pagamento Empréstimo",
     "FIN | Consórcio Principal",
+    "FIN | Juros bancários",
 ]
 
 CATS_TRANSITORIO = [
@@ -66,10 +79,8 @@ CATS_TRANSITORIO = [
     "REP | Repasse Cliente",
 ]
 
-# Todas as categorias conhecidas (para aviso de desconhecidas no app.py)
 TODAS_CATEGORIAS_CONHECIDAS = (
-    CATS_RECEITA + CATS_CUSTO_DIRETO + CATS_DESPESA_OP +
-    CATS_RESULTADO_FIN + CATS_IMPOSTO + CATS_RECEITA_FIN +
+    CATS_RECEITA + CATS_CUSTO_DIRETO + CATS_DESPESA_OP + CATS_IMPOSTO + CATS_RECEITA_FIN + CATS_RESULTADO_FIN +
     CATS_SOCIETARIO + CATS_EMPRESTIMO + CATS_TRANSITORIO +
     ["Transferência", "Despesa do cliente"]
 )
@@ -77,7 +88,6 @@ TODAS_CATEGORIAS_CONHECIDAS = (
 
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
-    # Reclassifica fatura de cartão (Transferência → DES | Uber/Combustível ou similar)
     mask_cartao = (
         (df["Categoria"] == "Transferência") &
         (df["Tipo"] == "Saída") &
