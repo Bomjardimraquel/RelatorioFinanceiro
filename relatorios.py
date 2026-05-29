@@ -48,6 +48,7 @@ CATS_DESPESA_OP = [
     "DES | Token/OAB", 
     "DES | Tráfego pago",
     "DES | Despesa Bancária",
+    "DES | Bancária",
 ]
 
 CATS_IMPOSTO = [
