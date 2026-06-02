@@ -1,6 +1,8 @@
 import pandas as pd
 from funcoes import soma, soma_entradas
 
+# ── Categorias do Astrea (prefixos novos) ────────────────────────────────────
+
 CATS_RECEITA = [
     "REC | Honorário Avulso",
     "REC | Honorário Contratado",
@@ -14,15 +16,18 @@ CATS_RECEITA = [
 CATS_CUSTO_DIRETO = [
     "CUS | Parceiro Jurídico",
     "CUS | Participação contrato",
-    "Despesa do cliente",
-    "CUS | Participação Vinicius Fraga",
     "CUS | Diligencia",
+    "CUS | Participação Vinicius Fraga",
+    "Despesa do cliente",
 ]
 
 CATS_DESPESA_OP = [
     "DES | Aluguel",
     "DES | Assinaturas Jurídicas",
+    "DES | Bancaria",
+    "DES | Certificado digital",
     "DES | Condomínio",
+    "DES | Consultoria",
     "DES | Contabilidade",
     "DES | Copa/Cozinha",
     "DES | Cursos/Especializações",
@@ -30,39 +35,36 @@ CATS_DESPESA_OP = [
     "DES | Energia",
     "DES | Folha Pagamento",
     "DES | Hospedagem/Site",
+    "DES | Internet",
     "DES | Limpeza",
+    "DES | Manutenção",
     "DES | Marketing",
+    "DES | Material Escritório",
+    "DES | Não Classificado",
     "DES | OAB/Anuidade",
     "DES | Pró-Labore",
+    "DES | Segurança",
     "DES | Software Jurídico",
     "DES | Telefonia",
-    "DES | Uber/Combustível",
-    "DES | Material Escritório",
-    "DES | Bancaria", 
-    "DES | Certificado digital", 
-    "DES | Consultoria", 
-    "DES | Internet", 
-    "DES | Manutenção",  
-    "DES | Não Classificado", 
-    "DES | Segurança", 
-    "DES | Token/OAB", 
+    "DES | Token/OAB",
     "DES | Tráfego pago",
-    "DES | Despesa Bancária",
-    "DES | Bancária",
+    "DES | Uber/Combustível",
+    "DES | Despesa Bancária",  # nome antigo — compatibilidade
+    "DES | Bancária",          # variante com acento — compatibilidade
 ]
+
+CATS_RESULTADO_FIN = []
 
 CATS_IMPOSTO = [
     "IMP | Simples Nacional",
     "IMP | IPTU",
-    "IMP | INSS"
+    "IMP | INSS",
 ]
 
 CATS_RECEITA_FIN = [
     "REC | Receita Financeira",
     "REC | Venda ativo",
 ]
-
-CATS_RESULTADO_FIN = []
 
 CATS_SOCIETARIO = [
     "SOC | Distribuição Lucros",
@@ -71,9 +73,11 @@ CATS_SOCIETARIO = [
 
 CATS_EMPRESTIMO = [
     "FIN | Empréstimo Bancário",
+    "FIN | Empréstimo bancário",
     "FIN | Pagamento Empréstimo",
     "FIN | Consórcio Principal",
     "FIN | Juros Bancários",
+    "FIN | Juros bancários",
 ]
 
 CATS_TRANSITORIO = [
@@ -81,15 +85,18 @@ CATS_TRANSITORIO = [
     "REP | Repasse Cliente",
 ]
 
+# Todas as categorias conhecidas (para aviso de desconhecidas no app.py)
 TODAS_CATEGORIAS_CONHECIDAS = (
-    CATS_RECEITA + CATS_CUSTO_DIRETO + CATS_DESPESA_OP + CATS_IMPOSTO + CATS_RECEITA_FIN + CATS_RESULTADO_FIN +
+    CATS_RECEITA + CATS_CUSTO_DIRETO + CATS_DESPESA_OP +
+    CATS_RESULTADO_FIN + CATS_IMPOSTO + CATS_RECEITA_FIN +
     CATS_SOCIETARIO + CATS_EMPRESTIMO + CATS_TRANSITORIO +
-    ["Transferência", "Despesa do cliente"]
+    ["Transferência", "Despesa do cliente", "Saldo inicial"]
 )
 
 
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
+    # Reclassifica fatura de cartão
     mask_cartao = (
         (df["Categoria"] == "Transferência") &
         (df["Tipo"] == "Saída") &
@@ -108,31 +115,29 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     total_receita  = rec_avulso + rec_contratado + rec_partido + rec_sucumb + rec_exito + rec_comp
 
     # ── CUSTOS DIRETOS ───────────────────────────────────────────────────────
-    cus_parceiro  = soma(df, ["CUS | Parceiro Jurídico"])
-    cus_part      = soma(df, ["CUS | Participação contrato"])
-    desp_cliente  = soma(df, ["Despesa do cliente"])
-    total_custos  = cus_parceiro + cus_part + desp_cliente
+    cus_parceiro = soma(df, ["CUS | Parceiro Jurídico"])
+    cus_part     = soma(df, ["CUS | Participação contrato"])
+    cus_dilig    = soma(df, ["CUS | Diligencia"])
+    cus_vini     = soma(df, ["CUS | Participação Vinicius Fraga"])
+    desp_cliente = soma(df, ["Despesa do cliente"])
+    total_custos = cus_parceiro + cus_part + cus_dilig + cus_vini + desp_cliente
 
-    lucro_bruto   = total_receita + total_custos
+    lucro_bruto = total_receita + total_custos
 
     # ── DESPESAS OPERACIONAIS ────────────────────────────────────────────────
     des_values = {cat: soma(df, [cat]) for cat in CATS_DESPESA_OP}
-    # adiciona provisão se informada
     provisao = -abs(provisao_vinicius) if provisao_vinicius else 0.0
     total_despesas_op = sum(des_values.values()) + provisao
 
     resultado_operacional = lucro_bruto + total_despesas_op
 
-    # ── RESULTADO FINANCEIRO (só despesa bancária) ───────────────────────────
-    desp_bancaria   = soma(df, ["DES | Despesa Bancária"])
-    total_fin       = desp_bancaria
-
     # ── IMPOSTOS ────────────────────────────────────────────────────────────
-    imp_simples  = soma(df, ["IMP | Simples Nacional"])
-    imp_iptu     = soma(df, ["IMP | IPTU"])
-    total_imp    = imp_simples + imp_iptu
+    imp_simples = soma(df, ["IMP | Simples Nacional"])
+    imp_iptu    = soma(df, ["IMP | IPTU"])
+    imp_inss    = soma(df, ["IMP | INSS"])
+    total_imp   = imp_simples + imp_iptu + imp_inss
 
-    lucro_liquido = resultado_operacional + total_fin + total_imp
+    lucro_liquido = resultado_operacional + total_imp
 
     # ── Monta DataFrame do DRE ───────────────────────────────────────────────
     contas  = ["RECEITAS OPERACIONAIS"]
@@ -152,9 +157,11 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     contas  += ["CUSTOS DIRETOS"]
     valores += [total_custos]
     for label, val in [
-        ("Parceiro Jurídico",       cus_parceiro),
-        ("Participação em Contrato", cus_part),
-        ("Despesa do Cliente",      desp_cliente),
+        ("Parceiro Jurídico",            cus_parceiro),
+        ("Participação em Contrato",     cus_part),
+        ("Diligência",                   cus_dilig),
+        ("Participação Vinicius Fraga",  cus_vini),
+        ("Despesa do Cliente",           desp_cliente),
     ]:
         contas.append(f"  {label}")
         valores.append(val)
@@ -175,14 +182,13 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     contas  += ["RESULTADO OPERACIONAL"]
     valores += [resultado_operacional]
 
-    contas  += ["RESULTADO FINANCEIRO"]
-    valores += [total_fin]
-    contas.append("  Despesa Bancária")
-    valores.append(desp_bancaria)
-
     contas  += ["IMPOSTOS"]
     valores += [total_imp]
-    for label, val in [("Simples Nacional", imp_simples), ("IPTU", imp_iptu)]:
+    for label, val in [
+        ("Simples Nacional", imp_simples),
+        ("IPTU",             imp_iptu),
+        ("INSS",             imp_inss),
+    ]:
         contas.append(f"  {label}")
         valores.append(val)
 
@@ -191,13 +197,15 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
 
     dre_operacional = pd.DataFrame({"Conta": contas, "Valor (R$)": valores})
 
-    # Tabelas separadas ─────────────────────────────────────
+    # ── Tabelas separadas ────────────────────────────────────────────────────
 
     # Receita financeira
-    rec_fin = soma_entradas(df, ["REC | Receita Financeira"])
+    rec_fin = soma_entradas(df, CATS_RECEITA_FIN)
+    rec_fin_val  = soma_entradas(df, ["REC | Receita Financeira"])
+    venda_ativo  = soma_entradas(df, ["REC | Venda ativo"])
     receita_financeira = pd.DataFrame({
-        "Descrição": ["Receita Financeira", "TOTAL"],
-        "Valor (R$)": [rec_fin, rec_fin]
+        "Descrição": ["Receita Financeira", "Venda de Ativo", "TOTAL"],
+        "Valor (R$)": [rec_fin_val, venda_ativo, rec_fin]
     })
 
     # Societário
@@ -209,11 +217,12 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     })
 
     # Empréstimos
-    emp_pag   = df[df["Categoria"] == "FIN | Pagamento Empréstimo"]["Valor"].sum()
+    emp_pag   = df[df["Categoria"].isin(["FIN | Empréstimo Bancário", "FIN | Empréstimo bancário", "FIN | Pagamento Empréstimo"])]["Valor"].sum()
     cons_prin = df[df["Categoria"] == "FIN | Consórcio Principal"]["Valor"].sum()
+    juros     = df[df["Categoria"].isin(["FIN | Juros Bancários", "FIN | Juros bancários"])]["Valor"].sum()
     emprestimos = pd.DataFrame({
-        "Descrição": ["Pagamento de Empréstimo", "Consórcio Principal", "TOTAL"],
-        "Valor (R$)": [emp_pag, cons_prin, emp_pag + cons_prin]
+        "Descrição": ["Empréstimo Bancário", "Consórcio Principal", "Juros Bancários", "TOTAL"],
+        "Valor (R$)": [emp_pag, cons_prin, juros, emp_pag + cons_prin + juros]
     })
 
     # Valores transitórios
@@ -225,15 +234,17 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Valor (R$)": [rep_cliente_val, val_tr_e, val_tr_s, rep_cliente_val + val_tr_e + val_tr_s]
     })
 
-    # Aba Receitas (listagem detalhada) ────────────────────────────────────
+    # ── Aba Receitas ─────────────────────────────────────────────────────────
     CATS_RECEITA_ORDEM = [
-        ("REC | Honorário Avulso",              "Honorário Avulso"),
-        ("REC | Honorário Contratado",           "Honorário Contratado"),
-        ("REC | Honorário Partido",              "Honorário Partido"),
-        ("REC | Honorário Sucumbencial",         "Honorário Sucumbencial"),
-        ("REC | Honorário Êxito",                "Honorário Êxito"),
-        ("REC | Honorário Compensação/liminar",  "Compensação/Liminar"),
-        ("REC | Receita Financeira",             "Receita Financeira"),
+        ("REC | Honorário Avulso",             "Honorário Avulso"),
+        ("REC | Honorário Contratado",          "Honorário Contratado"),
+        ("REC | Honorário Partido",             "Honorário Partido"),
+        ("REC | Honorário Sucumbencial",        "Honorário Sucumbencial"),
+        ("REC | Honorário Êxito",               "Honorário Êxito"),
+        ("REC | Honorário Compensação/liminar", "Compensação/Liminar"),
+        ("REC | Reembolso cliente",             "Reembolso Cliente"),
+        ("REC | Receita Financeira",            "Receita Financeira"),
+        ("REC | Venda ativo",                   "Venda de Ativo"),
     ]
 
     blocos = []
@@ -259,8 +270,8 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
     })
 
-    # ── Aba Despesas (listagem detalhada) ────────────────────────────────────
-    CATS_DESPESA_DETALHE = CATS_CUSTO_DIRETO + CATS_DESPESA_OP + CATS_RESULTADO_FIN + CATS_IMPOSTO
+    # ── Aba Despesas ─────────────────────────────────────────────────────────
+    CATS_DESPESA_DETALHE = CATS_CUSTO_DIRETO + CATS_DESPESA_OP + CATS_IMPOSTO
     despesas = df[
         (df["Tipo"] == "Saída") & (df["Categoria"].isin(CATS_DESPESA_DETALHE))
     ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]].copy()
@@ -275,7 +286,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
     })
 
-    # ── Bancos (mantido) ─────────────────────────────────────────────────────
+    # ── Bancos ───────────────────────────────────────────────────────────────
     bancos = df.groupby(["Conta Financeira", "Tipo"])["Valor"].sum().reset_index()
     bancos_pivot = bancos.pivot_table(
         index="Conta Financeira", columns="Tipo",
@@ -338,7 +349,7 @@ def gerar_centro_custos(df):
         .rename("RECEITA (R$)")
     )
     despesa = (
-        df[(df["Tipo"] == "Saída") & (df["Categoria"].isin(CATS_DESPESA_OP + CATS_RESULTADO_FIN + CATS_IMPOSTO))]
+        df[(df["Tipo"] == "Saída") & (df["Categoria"].isin(CATS_DESPESA_OP + CATS_IMPOSTO))]
         .groupby("Centro de custo")["Valor"].sum()
         .rename("DESPESA (R$)")
     )
