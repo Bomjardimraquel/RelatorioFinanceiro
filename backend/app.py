@@ -172,7 +172,11 @@ if uploaded_file is not None:
                 # Movimentos (dados brutos)
                 df.to_excel(writer, sheet_name="Movimentos", index=False)
 
+<<<<<<< HEAD:backend/app.py
                 # DRE — começa na linha 3 (startrow=2) por causa do título
+=======
+                # DRE 
+>>>>>>> 07830e8802a857149dbd43f581169d14df6d0ab5:app.py
                 dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
 
                 # Demais abas
@@ -196,7 +200,11 @@ if uploaded_file is not None:
                     mes_ano=mes_ano,
                 )
 
+<<<<<<< HEAD:backend/app.py
                 # Ranking_Clientes — escrita manual para formatação
+=======
+                # Ranking_Clientes
+>>>>>>> 07830e8802a857149dbd43f581169d14df6d0ab5:app.py
                 ws_rank = writer.sheets["Ranking_Clientes"]
                 rf = fmts["rank_fmts"]
                 for i, row in ranking.reset_index().iterrows():
@@ -212,7 +220,11 @@ if uploaded_file is not None:
                 ws_rank.write(total_r, 2, ranking["RECEITA (R$)"].sum(), rf["total_val"])
                 ws_rank.write(total_r, 3, 1.0,      rf["pct"])
 
+<<<<<<< HEAD:backend/app.py
                 # Centro_Custos — escrita manual para formatação
+=======
+                # Centro_Custos
+>>>>>>> 07830e8802a857149dbd43f581169d14df6d0ab5:app.py
                 ws_cc = writer.sheets["Centro_Custos"]
                 cf = fmts["cc_fmts"]
                 for i, row in centros.iterrows():
