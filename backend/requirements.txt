@@ -4,8 +4,4 @@ openpyxl
 streamlit
 streamlit-authenticator==0.4.2
 pyyaml
-<<<<<<< HEAD:backend/requirements.txt
 bcrypt
-=======
-bcrypt
->>>>>>> 07830e8802a857149dbd43f581169d14df6d0ab5:requirements.txt
