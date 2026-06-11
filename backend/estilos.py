@@ -477,17 +477,19 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
              VERDE_BG if lucro_liquido >= 0 else VERMELHO_BG)
     ws_dash.set_row(9, 12)
 
-    # ── Dados auxiliares para gráficos (colunas L+ ocultas) ───────────────────
+    # ── Dados auxiliares para gráficos (linhas 200+) ─────────────────────────
+    DATA_ROW = 200
+
     dre_labels = ["Receita Bruta", "Lucro Bruto", "Resultado Op.", "Lucro Líquido"]
     dre_vals   = [receita_bruta, lucro_bruto, resultado_op, lucro_liquido]
     for i, (l, v) in enumerate(zip(dre_labels, dre_vals)):
-        ws_dash.write(i, 11, l)
-        ws_dash.write(i, 12, abs(v))
+        ws_dash.write(DATA_ROW + i, 0, l)
+        ws_dash.write(DATA_ROW + i, 1, abs(v))
 
     ranking_top = ranking.head(8).reset_index()
     for i, row in ranking_top.iterrows():
-        ws_dash.write(i, 14, row["CLIENTE"][:22])
-        ws_dash.write(i, 15, row["RECEITA (R$)"])
+        ws_dash.write(DATA_ROW + i, 2, row["CLIENTE"][:22])
+        ws_dash.write(DATA_ROW + i, 3, row["RECEITA (R$)"])
 
     desp_cats = dre_operacional[
         dre_operacional["Conta"].str.startswith("  ") &
@@ -495,17 +497,14 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     ].copy()
     desp_cats = desp_cats[desp_cats["Valor (R$)"] < 0].nsmallest(8, "Valor (R$)")
     for i, (_, row) in enumerate(desp_cats.iterrows()):
-        ws_dash.write(i, 17, row["Conta"].strip()[:18])
-        ws_dash.write(i, 18, abs(row["Valor (R$)"]))
+        ws_dash.write(DATA_ROW + i, 4, row["Conta"].strip()[:18])
+        ws_dash.write(DATA_ROW + i, 5, abs(row["Valor (R$)"]))
 
     centros_graf = centros[centros["CENTRO DE CUSTO"] != "TOTAL"].reset_index(drop=True)
     for i, row in centros_graf.iterrows():
-        ws_dash.write(i, 20, row["CENTRO DE CUSTO"])
-        ws_dash.write(i, 21, row["RECEITA (R$)"])
-        ws_dash.write(i, 22, abs(row["DESPESA (R$)"]))
-
-    # Oculta colunas auxiliares
-    ws_dash.set_column(11, 25, None, None, {"hidden": True})
+        ws_dash.write(DATA_ROW + i, 6, row["CENTRO DE CUSTO"])
+        ws_dash.write(DATA_ROW + i, 7, row["RECEITA (R$)"])
+        ws_dash.write(DATA_ROW + i, 8, abs(row["DESPESA (R$)"]))
 
     n_dre  = len(dre_labels)
     n_rank = len(ranking_top)
@@ -523,8 +522,8 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     chart1 = workbook.add_chart({"type": "column"})
     chart1.add_series({
         "name": "Valor",
-        "categories": ["Dashboard", 0, 11, n_dre - 1, 11],
-        "values":     ["Dashboard", 0, 12, n_dre - 1, 12],
+        "categories": ["Dashboard", DATA_ROW, 0, DATA_ROW + n_dre - 1, 0],
+        "values":     ["Dashboard", DATA_ROW, 1, DATA_ROW + n_dre - 1, 1],
         "fill":       {"colors": CORES_DRE},
         "gap": 70,
     })
@@ -545,8 +544,8 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     chart2 = workbook.add_chart({"type": "bar"})
     chart2.add_series({
         "name": "Receita",
-        "categories": ["Dashboard", 0, 14, n_rank - 1, 14],
-        "values":     ["Dashboard", 0, 15, n_rank - 1, 15],
+        "categories": ["Dashboard", DATA_ROW, 2, DATA_ROW + n_rank - 1, 2],
+        "values":     ["Dashboard", DATA_ROW, 3, DATA_ROW + n_rank - 1, 3],
         "fill":       {"color": AZUL_MEDIO},
         "gap": 50,
     })
@@ -567,8 +566,8 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     chart3 = workbook.add_chart({"type": "bar"})
     chart3.add_series({
         "name": "Despesa",
-        "categories": ["Dashboard", 0, 17, n_desp - 1, 17],
-        "values":     ["Dashboard", 0, 18, n_desp - 1, 18],
+        "categories": ["Dashboard", DATA_ROW, 4, DATA_ROW + n_desp - 1, 4],
+        "values":     ["Dashboard", DATA_ROW, 5, DATA_ROW + n_desp - 1, 5],
         "fill":       {"color": ROXO},
         "gap": 50,
     })
@@ -589,15 +588,15 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     chart4 = workbook.add_chart({"type": "column"})
     chart4.add_series({
         "name": "Receita",
-        "categories": ["Dashboard", 0, 20, n_cc - 1, 20],
-        "values":     ["Dashboard", 0, 21, n_cc - 1, 21],
+        "categories": ["Dashboard", DATA_ROW, 6, DATA_ROW + n_cc - 1, 6],
+        "values":     ["Dashboard", DATA_ROW, 7, DATA_ROW + n_cc - 1, 7],
         "fill":       {"color": AZUL_MEDIO},
         "gap": 60,
     })
     chart4.add_series({
         "name": "Despesa",
-        "categories": ["Dashboard", 0, 20, n_cc - 1, 20],
-        "values":     ["Dashboard", 0, 22, n_cc - 1, 22],
+        "categories": ["Dashboard", DATA_ROW, 6, DATA_ROW + n_cc - 1, 6],
+        "values":     ["Dashboard", DATA_ROW, 8, DATA_ROW + n_cc - 1, 8],
         "fill":       {"color": DOURADO},
         "gap": 60,
     })
