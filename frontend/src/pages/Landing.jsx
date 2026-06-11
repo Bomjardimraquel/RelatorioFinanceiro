@@ -81,7 +81,7 @@ export default function Landing() {
             <iframe
               width="100%"
               height="100%"
-              src="https://www.youtube.com/embed/V18i55al1vU?autoplay=1"
+              src="https://www.youtube.com/embed/V18i55al1vU?autoplay=1&mute=1&modestbranding=1&rel=0"
               title="Ledra Demo"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -125,12 +125,12 @@ export default function Landing() {
             <iframe
               width="100%"
               height="100%"
-              src="https://www.youtube.com/embed/V18i55al1vU"
+              src="https://www.youtube.com/embed/V18i55al1vU?autoplay=1&mute=1&modestbranding=1&rel=0"
               title="Ledra Demo"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              style={{pointerEvents: "none"}}
+              
             ></iframe>
             <div className="l-video-play-btn">
               <svg viewBox="0 0 24 24" fill="white" width="48" height="48">
