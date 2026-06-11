@@ -1,7 +1,11 @@
+fastapi
+uvicorn
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+python-dotenv
 pandas
 xlsxwriter
 openpyxl
-streamlit
-streamlit-authenticator==0.4.2
-pyyaml
 bcrypt
+pyyaml
