@@ -139,7 +139,6 @@ async def gerar_relatorio(
         centros.to_excel(writer, sheet_name="Centro_Custos", index=False, startrow=2)
 
         workbook = writer.book
-        workbook.add_worksheet("Dashboard")
 
         fmts = aplicar_estilos(
             workbook, writer,
