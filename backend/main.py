@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import bcrypt
 from pathlib import Path
 
@@ -73,6 +74,8 @@ def refresh(body: RefreshRequest):
 def alterar_senha(body: AlterarSenhaRequest, current_user: dict = Depends(get_current_user)):
     if not bcrypt.checkpw(body.senha_atual.encode(), current_user["hashed_password"].encode()):
         raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    if os.getenv("USERS_JSON"):
+        raise HTTPException(status_code=400, detail="Alteração de senha não disponível neste ambiente")
     users = load_users()
     users[current_user["username"]]["hashed_password"] = bcrypt.hashpw(
         body.nova_senha.encode(), bcrypt.gensalt()
@@ -135,7 +138,6 @@ async def gerar_relatorio(
         ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)
         centros.to_excel(writer, sheet_name="Centro_Custos", index=False, startrow=2)
 
-        # Cria aba Dashboard vazia (os gráficos são inseridos em aplicar_estilos)
         workbook = writer.book
         workbook.add_worksheet("Dashboard")
 
@@ -187,21 +189,18 @@ async def gerar_relatorio(
     resultado_op   = dre_operacional.loc[dre_operacional["Conta"] == "RESULTADO OPERACIONAL", "Valor (R$)"].values[0]
     lucro_bruto    = dre_operacional.loc[dre_operacional["Conta"] == "LUCRO BRUTO", "Valor (R$)"].values[0]
 
-    # DRE simplificada para gráfico
     dre_grafico = [
-        {"nome": "Receita Bruta",   "valor": round(receita_bruta, 2)},
-        {"nome": "Lucro Bruto",     "valor": round(lucro_bruto, 2)},
-        {"nome": "Resultado Op.",   "valor": round(resultado_op, 2)},
-        {"nome": "Lucro Líquido",   "valor": round(lucro_liquido, 2)},
+        {"nome": "Receita Bruta",  "valor": round(receita_bruta, 2)},
+        {"nome": "Lucro Bruto",    "valor": round(lucro_bruto, 2)},
+        {"nome": "Resultado Op.",  "valor": round(resultado_op, 2)},
+        {"nome": "Lucro Líquido",  "valor": round(lucro_liquido, 2)},
     ]
 
-    # Ranking top 8
     ranking_grafico = [
         {"cliente": row["CLIENTE"][:25], "receita": round(row["RECEITA (R$)"], 2)}
         for _, row in ranking.head(8).reset_index().iterrows()
     ]
 
-    # Despesas top 8 (excluindo zeradas)
     desp_cats = dre_operacional[
         dre_operacional["Conta"].str.startswith("  ") &
         ~dre_operacional["Conta"].isin(["  Provisão Repasse Ex-Sócio"])
@@ -213,18 +212,18 @@ async def gerar_relatorio(
     ]
 
     dados_json = json.dumps({
-        "mesAno":       mes_ano,
-        "nomeArquivo":  nome_arquivo,
-        "receitaBruta": round(receita_bruta, 2),
-        "lucroLiquido": round(lucro_liquido, 2),
+        "mesAno":        mes_ano,
+        "nomeArquivo":   nome_arquivo,
+        "receitaBruta":  round(receita_bruta, 2),
+        "lucroLiquido":  round(lucro_liquido, 2),
         "totalDespesas": round(total_despesas, 2),
-        "dre":          dre_grafico,
-        "ranking":      ranking_grafico,
-        "despesas":     despesas_grafico,
+        "dre":           dre_grafico,
+        "ranking":       ranking_grafico,
+        "despesas":      despesas_grafico,
     }, ensure_ascii=False)
 
     headers = {
-        "X-Dados":      dados_json,
+        "X-Dados": dados_json,
         "Access-Control-Expose-Headers": "X-Dados",
     }
 
@@ -243,11 +242,15 @@ def load_categorias() -> dict:
             CATS_SOCIETARIO, CATS_EMPRESTIMO, CATS_TRANSITORIO,
         )
         cats = {
-            "CATS_RECEITA": CATS_RECEITA, "CATS_CUSTO_DIRETO": CATS_CUSTO_DIRETO,
-            "CATS_DESPESA_OP": CATS_DESPESA_OP, "CATS_RESULTADO_FIN": CATS_RESULTADO_FIN,
-            "CATS_IMPOSTO": CATS_IMPOSTO, "CATS_RECEITA_FIN": CATS_RECEITA_FIN,
-            "CATS_SOCIETARIO": CATS_SOCIETARIO, "CATS_EMPRESTIMO": CATS_EMPRESTIMO,
-            "CATS_TRANSITORIO": CATS_TRANSITORIO,
+            "CATS_RECEITA":       CATS_RECEITA,
+            "CATS_CUSTO_DIRETO":  CATS_CUSTO_DIRETO,
+            "CATS_DESPESA_OP":    CATS_DESPESA_OP,
+            "CATS_RESULTADO_FIN": CATS_RESULTADO_FIN,
+            "CATS_IMPOSTO":       CATS_IMPOSTO,
+            "CATS_RECEITA_FIN":   CATS_RECEITA_FIN,
+            "CATS_SOCIETARIO":    CATS_SOCIETARIO,
+            "CATS_EMPRESTIMO":    CATS_EMPRESTIMO,
+            "CATS_TRANSITORIO":   CATS_TRANSITORIO,
         }
         with open(CATS_FILE, "w") as f:
             json.dump(cats, f, indent=2, ensure_ascii=False)
