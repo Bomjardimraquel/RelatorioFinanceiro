@@ -52,6 +52,7 @@ def authenticate_user(username: str, password: str) -> dict | None:
         return None
     if not verify_password(password, user["hashed_password"]):
         return None
+    user["username"] = username  # ← adiciona essa linha
     return user
 
 # ── Tokens ───────────────────────────────────────────────────────────────────
