@@ -40,7 +40,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
                     emprestimos, transitorio, despesas_detalhadas, conciliacao,
                     ranking, centros, mes_ano=""):
 
-    titulo_aba = f"Ledra — Relatório Financeiro {mes_ano}".strip(" —")
+    titulo_aba = f"Ledra (Relatório Financeiro {mes_ano})".strip()
 
     # ═══════════════════════════════════════════════════════════════════════════
     # ABA: DRE_Operacional
@@ -414,7 +414,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     # ═══════════════════════════════════════════════════════════════════════════
     # ABA: Dashboard
     # ═══════════════════════════════════════════════════════════════════════════
-    ws_dash = writer.sheets["Dashboard"]
+    ws_dash = workbook.add_worksheet("Dashboard")
     ws_dash.set_tab_color(AZUL_ESCURO)
     ws_dash.hide_gridlines(2)
     ws_dash.set_zoom(90)
@@ -433,7 +433,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
                  bg_color=AZUL_ESCURO, valign="vcenter")
     ws_dash.set_row(0, 36)
     ws_dash.set_row(1, 18)
-    ws_dash.merge_range(0, 0, 0, 10, f"  Dashboard Financeiro — {mes_ano}", cab_fmt)
+    ws_dash.merge_range(0, 0, 0, 10, f"  Dashboard Financeiro   {mes_ano}", cab_fmt)
     ws_dash.merge_range(1, 0, 1, 10, "  Visão executiva gerada automaticamente pelo Ledra", sub_fmt)
     ws_dash.set_row(2, 8)
 
