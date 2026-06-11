@@ -95,14 +95,6 @@ TODAS_CATEGORIAS_CONHECIDAS = (
 
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
-    mask_cartao = (
-        (df["Categoria"] == "Transferência") &
-        (df["Tipo"] == "Saída") &
-        (df["Descricao"].str.contains("cartão|cartao|fatura", case=False, na=False))
-    )
-    df = df.copy()
-    df.loc[mask_cartao, "Categoria"] = "DES | Uber/Combustível"
-
     rec_avulso     = soma_entradas(df, ["REC | Honorário Avulso"])
     rec_contratado = soma_entradas(df, ["REC | Honorário Contratado"])
     rec_partido    = soma_entradas(df, ["REC | Honorário Partido"])
