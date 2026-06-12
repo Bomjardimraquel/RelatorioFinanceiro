@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth.jsx";
-import { LedraIcon } from "./LedraIcon";
+import { FaciorIcon } from "./FaciorIcon";
 
 const initials = (name) =>
   name ? name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() : "?";
@@ -12,8 +12,8 @@ export default function Layout({ children }) {
     <div style={styles.shell}>
       <div style={styles.sidebar}>
         <div style={styles.logo}>
-          <LedraIcon size={32} variant="dark" />
-          <span style={styles.logoText}>Ledra</span>
+          <FaciorIcon size={28} />
+          <span style={styles.logoText}>Facior</span>
         </div>
 
         <nav style={styles.nav}>
