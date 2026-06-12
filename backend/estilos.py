@@ -1,5 +1,5 @@
 """
-estilos.py — Ledra Financial Reports
+estilos.py — Facior Financial Reports
 Paleta: #0C2340 (azul escuro) | #185FA5 (azul médio) | #C9A84C (dourado)
         #3B6D11 (verde) | #A32D2D (vermelho) | #F7F5F0 (off-white)
 """
@@ -40,7 +40,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
                     emprestimos, transitorio, despesas_detalhadas, conciliacao,
                     ranking, centros, mes_ano=""):
 
-    titulo_aba = f"Ledra (Relatório Financeiro {mes_ano})".strip()
+    titulo_aba = f"Facior (Relatório Financeiro {mes_ano})".strip()
 
     # ═══════════════════════════════════════════════════════════════════════════
     # ABA: DRE_Operacional
@@ -434,7 +434,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     ws_dash.set_row(0, 36)
     ws_dash.set_row(1, 18)
     ws_dash.merge_range(0, 0, 0, 10, f"  Dashboard Financeiro   {mes_ano}", cab_fmt)
-    ws_dash.merge_range(1, 0, 1, 10, "  Visão executiva gerada automaticamente pelo Ledra", sub_fmt)
+    ws_dash.merge_range(1, 0, 1, 10, "  Visão executiva gerada automaticamente pelo Facior", sub_fmt)
     ws_dash.set_row(2, 8)
 
     # ── KPIs ──────────────────────────────────────────────────────────────────
