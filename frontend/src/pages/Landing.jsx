@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LedraIcon } from "../components/LedraIcon";
+import { FaciorIcon } from "../components/FaciorIcon";
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -20,7 +20,7 @@ export default function Landing() {
     const body = encodeURIComponent(
       `Nome: ${form.nome}\nEmail: ${form.email}\nEscritório: ${form.escritorio}\nTelefone: ${form.telefone}`
     );
-    window.open(`mailto:bomjardimraquel@gmail.com?subject=${subject}&body=${body}`);
+    window.open(`mailto:raquel@ledra.com.br?subject=${subject}&body=${body}`);
     setEnviado(true);
     setEnviando(false);
   };
@@ -63,7 +63,7 @@ export default function Landing() {
               <div className="modal-success">
                 <div className="modal-success-icon">✓</div>
                 <div className="modal-title">Solicitação enviada!</div>
-                <div className="modal-sub">Entraremos em contato em breve. Obrigada pelo interesse no Ledra!</div>
+                <div className="modal-sub">Entraremos em contato em breve. Obrigada pelo interesse no Facior!</div>
                 <button className="btn-modal-submit" onClick={() => { setShowCadastro(false); setEnviado(false); }}>
                   Fechar
                 </button>
@@ -82,7 +82,7 @@ export default function Landing() {
               width="100%"
               height="100%"
               src="https://www.youtube.com/embed/V18i55al1vU?autoplay=1&mute=1&modestbranding=1&rel=0"
-              title="Ledra Demo"
+              title="Facior Demo"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -94,8 +94,8 @@ export default function Landing() {
       {/* NAV */}
       <nav className="l-nav">
         <div className="l-nav-logo">
-          <LedraIcon size={32} variant="dark" />
-          <span className="l-nav-logo-text">Ledra</span>
+          <FaciorIcon size={28} />
+          <span className="l-nav-logo-text">Facior</span>
         </div>
         <div className="l-nav-links">
           <a href="#como-funciona" className="l-nav-link">Como funciona</a>
@@ -126,7 +126,7 @@ export default function Landing() {
               width="100%"
               height="100%"
               src="https://www.youtube.com/embed/V18i55al1vU?autoplay=1&mute=1&modestbranding=1&rel=0"
-              title="Ledra Demo"
+              title="Facior Demo"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -172,7 +172,7 @@ export default function Landing() {
       {/* BENEFÍCIOS */}
       <div id="beneficios" className="l-section">
         <div className="l-eyebrow">Benefícios</div>
-        <h2 className="l-section-title">Por que usar o Ledra</h2>
+        <h2 className="l-section-title">Por que usar o Facior</h2>
         <div className="l-benefits">
           {[
             {title:"Agilidade Extrema",text:"O que antes levava dias de compilação, agora leva segundos. Automatize a extração de dados com um único clique."},
@@ -199,7 +199,7 @@ export default function Landing() {
             <button className="l-btn-wa" onClick={() => setShowCadastro(true)}>
               Solicitar acesso
             </button>
-            <a href="https://wa.me/73988621352" className="l-btn-email">
+            <a href="https://wa.me/SEU_NUMERO" className="l-btn-email">
               <i className="ti ti-brand-whatsapp" aria-hidden="true"></i>
               WhatsApp
             </a>
@@ -208,7 +208,7 @@ export default function Landing() {
       </div>
 
       <footer className="l-footer">
-        <div className="l-footer-text">© 2026 Ledra — Desenvolvido por Raquel Bomjardim</div>
+        <div className="l-footer-text">© 2026 Facior — Desenvolvido por Raquel Bomjardim</div>
         <div className="l-footer-text">Política de privacidade</div>
       </footer>
 
