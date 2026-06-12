@@ -1,7 +1,7 @@
 import pandas as pd
 from funcoes import soma, soma_entradas
 
-# ── Categorias do Astrea (prefixos novos) ────────────────────────────────────
+# ── Categorias do Astrea ─────────────────────────────────────────────────────
 
 CATS_RECEITA = [
     "REC | Honorário Avulso",
@@ -104,12 +104,15 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     total_receita  = rec_avulso + rec_contratado + rec_partido + rec_sucumb + rec_exito + rec_comp
 
     cus_parceiro = soma(df, ["CUS | Parceiro Jurídico"])
-    cus_part     = soma(df, ["CUS | Participação contrato"])
     cus_dilig    = soma(df, ["CUS | Diligencia"])
     cus_vini     = soma(df, ["CUS | Participação Vinicius Fraga"])
     desp_cliente = soma(df, ["Despesa do cliente"])
-    total_custos = cus_parceiro + cus_part + cus_dilig + cus_vini + desp_cliente
 
+    # Participação em contrato detalhada por beneficiário
+    part_df = df[df["Categoria"] == "CUS | Participação contrato"].copy()
+    cus_part_total = part_df["Valor"].sum()
+
+    total_custos = cus_parceiro + cus_part_total + cus_dilig + cus_vini + desp_cliente
     lucro_bruto = total_receita + total_custos
 
     des_values = {cat: soma(df, [cat]) for cat in CATS_DESPESA_OP}
@@ -140,9 +143,20 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
 
     contas  += ["CUSTOS DIRETOS"]
     valores += [total_custos]
+
+    # Parceiro Jurídico
+    contas.append("  Parceiro Jurídico")
+    valores.append(cus_parceiro)
+
+    # Participação em Contrato — detalhado por beneficiário
+    contas.append("  Participação em Contrato")
+    valores.append(cus_part_total)
+    for _, row in part_df.iterrows():
+        beneficiario = str(row["Pago para / Recebido de"])[:35] if row["Pago para / Recebido de"] else "Não identificado"
+        contas.append(f"    {beneficiario}")
+        valores.append(row["Valor"])
+
     for label, val in [
-        ("Parceiro Jurídico",           cus_parceiro),
-        ("Participação em Contrato",    cus_part),
         ("Diligência",                  cus_dilig),
         ("Participação Vinicius Fraga", cus_vini),
         ("Despesa do Cliente",          desp_cliente),
@@ -210,6 +224,7 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Valor (R$)": [rep_cliente_val, val_tr_e, val_tr_s, rep_cliente_val + val_tr_e + val_tr_s]
     })
 
+    # ── Aba Receitas ─────────────────────────────────────────────────────────
     CATS_RECEITA_ORDEM = [
         ("REC | Honorário Avulso",             "Honorário Avulso"),
         ("REC | Honorário Contratado",          "Honorário Contratado"),
@@ -243,15 +258,36 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
     })
 
+    # ── Aba Despesas — igual às receitas: lançamento a lançamento com total ──
     CATS_DESPESA_DETALHE = CATS_CUSTO_DIRETO + CATS_DESPESA_OP + CATS_IMPOSTO
-    despesas = df[
-        (df["Tipo"] == "Saída") & (df["Categoria"].isin(CATS_DESPESA_DETALHE))
-    ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]].copy()
-    totais = despesas.groupby("Categoria")["Valor"].sum().reset_index()
-    totais["Data"] = ""
-    totais["Pago para / Recebido de"] = ""
-    totais["Descricao"] = "TOTAL " + totais["Categoria"].str.replace(r"^[A-Z]{2,3} \| ", "", regex=True)
-    despesas_detalhadas = pd.concat([despesas, totais], ignore_index=True)
+    CATS_LABELS = {}
+    for c in CATS_CUSTO_DIRETO:
+        CATS_LABELS[c] = c.replace("CUS | ", "")
+    for c in CATS_DESPESA_OP:
+        CATS_LABELS[c] = c.replace("DES | ", "")
+    for c in CATS_IMPOSTO:
+        CATS_LABELS[c] = c.replace("IMP | ", "")
+    CATS_LABELS["Despesa do cliente"] = "Despesa do Cliente"
+
+    blocos_desp = []
+    for cat in CATS_DESPESA_DETALHE:
+        bloco = df[
+            (df["Tipo"] == "Saída") & (df["Categoria"] == cat)
+        ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]].copy()
+        if bloco.empty:
+            continue
+        label = CATS_LABELS.get(cat, cat)
+        total = pd.DataFrame([{
+            "Data": "", "Pago para / Recebido de": "",
+            "Descricao": f"TOTAL {label.upper()}",
+            "Categoria": cat, "Valor": bloco["Valor"].sum()
+        }])
+        blocos_desp.append(bloco)
+        blocos_desp.append(total)
+
+    despesas_detalhadas = pd.concat(blocos_desp, ignore_index=True) if blocos_desp else pd.DataFrame(
+        columns=["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]
+    )
     despesas_detalhadas = despesas_detalhadas.rename(columns={
         "Data": "DATA", "Pago para / Recebido de": "PAGO PARA",
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
