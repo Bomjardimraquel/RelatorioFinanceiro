@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../services/api";
 import { useAuth } from "../hooks/useAuth.jsx";
-import { LedraIcon } from "../components/LedraIcon";
+import { FaciorIcon, FaciorLogo } from "../components/FaciorIcon";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -31,8 +31,8 @@ export default function Login() {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.brand}>
-          <LedraIcon size={48} variant="dark" />
-          <h1 style={styles.brandTitle}>Ledra</h1>
+          <FaciorLogo height={48} />
+          
           <p style={styles.brandSub}>Acesse sua conta para continuar</p>
         </div>
 
