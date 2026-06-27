@@ -45,7 +45,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     # ═══════════════════════════════════════════════════════════════════════════
     # ABA: DRE_Operacional
     # ═══════════════════════════════════════════════════════════════════════════
-    ws = writer.sheets["DRE_Operacional"]
+    ws = workbook.get_worksheet_by_name("DRE_Operacional")
     ws.hide_gridlines(2)
     ws.set_column(0, 0, 36)   # Conta
     ws.set_column(1, 1, 18)   # Valor

@@ -15,7 +15,7 @@ from auth import (
     authenticate_user, create_access_token, create_refresh_token,
     decode_token, get_current_user, load_users, USERS_FILE
 )
-from relatorios import gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos
+from relatorios import gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos, get_todas_categorias_conhecidas
 from estilos import aplicar_estilos
 
 app = FastAPI(title="Relatório Financeiro API")
@@ -102,6 +102,14 @@ async def gerar_relatorio(
     contents = await file.read()
     df = pd.read_excel(io.BytesIO(contents))
 
+    conhecidas_norm = {c.strip().lower() for c in get_todas_categorias_conhecidas()}
+    cats_ignoradas = sorted(
+        c for c in df["Categoria"].dropna().unique()
+        if c.strip().lower() not in conhecidas_norm
+    )
+    valor_ignorado = round(
+        df[df["Categoria"].isin(cats_ignoradas)]["Valor"].abs().sum(), 2
+    ) if cats_ignoradas else 0.0
     try:
         primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
         mes_nome      = MESES[primeira_data.month]
@@ -132,7 +140,8 @@ async def gerar_relatorio(
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df.to_excel(writer, sheet_name="Movimentos", index=False)
-        dre_operacional.to_excel(writer, sheet_name="DRE_Operacional", index=False, startrow=2)
+        # DRE escrita inteiramente pelo estilos.py — não usar to_excel para evitar linha duplicada
+        writer.book.add_worksheet("DRE_Operacional")
         conciliacao.to_excel(writer, sheet_name="Receitas", index=False, startrow=2)
         despesas_detalhadas.to_excel(writer, sheet_name="Despesas", index=False, startrow=2)
         ranking.reset_index().to_excel(writer, sheet_name="Ranking_Clientes", index=False, startrow=2)
@@ -211,14 +220,16 @@ async def gerar_relatorio(
     ]
 
     dados_json = json.dumps({
-        "mesAno":        mes_ano,
-        "nomeArquivo":   nome_arquivo,
-        "receitaBruta":  round(receita_bruta, 2),
-        "lucroLiquido":  round(lucro_liquido, 2),
-        "totalDespesas": round(total_despesas, 2),
-        "dre":           dre_grafico,
-        "ranking":       ranking_grafico,
-        "despesas":      despesas_grafico,
+        "mesAno":             mes_ano,
+        "nomeArquivo":        nome_arquivo,
+        "receitaBruta":       round(receita_bruta, 2),
+        "lucroLiquido":       round(lucro_liquido, 2),
+        "totalDespesas":      round(total_despesas, 2),
+        "dre":                dre_grafico,
+        "ranking":            ranking_grafico,
+        "despesas":           despesas_grafico,
+        "categoriasIgnoradas": cats_ignoradas,
+        "valorIgnorado":      valor_ignorado,
     }, ensure_ascii=False)
 
     headers = {

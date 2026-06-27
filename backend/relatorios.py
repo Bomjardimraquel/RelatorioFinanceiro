@@ -1,7 +1,9 @@
+import json
 import pandas as pd
+from pathlib import Path
 from funcoes import soma, soma_entradas
 
-# ── Categorias do Astrea ─────────────────────────────────────────────────────
+# ── Categorias base (hardcoded) ───────────────────────────────────────────────
 
 CATS_RECEITA = [
     "REC | Honorário Avulso",
@@ -85,49 +87,161 @@ CATS_TRANSITORIO = [
     "REP | Repasse Cliente",
 ]
 
-TODAS_CATEGORIAS_CONHECIDAS = (
-    CATS_RECEITA + CATS_CUSTO_DIRETO + CATS_DESPESA_OP +
-    CATS_RESULTADO_FIN + CATS_IMPOSTO + CATS_RECEITA_FIN +
-    CATS_SOCIETARIO + CATS_EMPRESTIMO + CATS_TRANSITORIO +
-    ["Transferência", "Despesa do cliente", "Saldo inicial"]
-)
+# ── Categorias dinâmicas via categorias.json ──────────────────────────────────
+
+CATS_FILE = Path(__file__).parent / "categorias.json"
+
+def _carregar_cats_dinamicas():
+    if not CATS_FILE.exists():
+        return {}
+    try:
+        with open(CATS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _merge_cats(base_list, json_key):
+    dinamicas = _carregar_cats_dinamicas()
+    extras = dinamicas.get(json_key, [])
+    merged = list(base_list)
+    for cat in extras:
+        if cat not in merged:
+            merged.append(cat)
+    return merged
+
+def get_cats_receita():
+    return _merge_cats(CATS_RECEITA, "CATS_RECEITA")
+
+def get_cats_custo_direto():
+    return _merge_cats(CATS_CUSTO_DIRETO, "CATS_CUSTO_DIRETO")
+
+def get_cats_despesa_op():
+    return _merge_cats(CATS_DESPESA_OP, "CATS_DESPESA_OP")
+
+def get_cats_imposto():
+    return _merge_cats(CATS_IMPOSTO, "CATS_IMPOSTO")
+
+def get_cats_receita_fin():
+    return _merge_cats(CATS_RECEITA_FIN, "CATS_RECEITA_FIN")
+
+def get_cats_societario():
+    return _merge_cats(CATS_SOCIETARIO, "CATS_SOCIETARIO")
+
+def get_cats_emprestimo():
+    return _merge_cats(CATS_EMPRESTIMO, "CATS_EMPRESTIMO")
+
+def get_cats_transitorio():
+    return _merge_cats(CATS_TRANSITORIO, "CATS_TRANSITORIO")
+
+
+def get_todas_categorias_conhecidas():
+    return list(set(
+        get_cats_receita() + get_cats_custo_direto() + get_cats_despesa_op() +
+        get_cats_imposto() + get_cats_receita_fin() + get_cats_societario() +
+        get_cats_emprestimo() + get_cats_transitorio() +
+        ["Transferência", "Despesa do cliente", "Saldo inicial"]
+    ))
+
+# Categorias hardcoded com linha própria no DRE (não são geradas dinamicamente)
+_RECEITA_HARDCODED = {
+    "REC | Honorário Avulso",
+    "REC | Honorário Contratado",
+    "REC | Honorário Partido",
+    "REC | Honorário Sucumbencial",
+    "REC | Honorário Êxito",
+    "REC | Honorário Compensação/liminar",
+}
+
+_CUSTO_HARDCODED = {
+    "CUS | Parceiro Jurídico",
+    "CUS | Participação contrato",
+    "CUS | Diligencia",
+    "CUS | Participação Vinicius Fraga",
+    "Despesa do cliente",
+}
+
+_IMPOSTO_HARDCODED = {
+    "IMP | Simples Nacional",
+    "IMP | IPTU",
+    "IMP | INSS",
+}
 
 
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
+    # Carrega listas com merge dinâmico
+    cats_receita      = get_cats_receita()
+    cats_custo_direto = get_cats_custo_direto()
+    cats_despesa_op   = get_cats_despesa_op()
+    cats_imposto      = get_cats_imposto()
+
+    # ── Receitas ──────────────────────────────────────────────────────────────
     rec_avulso     = soma_entradas(df, ["REC | Honorário Avulso"])
     rec_contratado = soma_entradas(df, ["REC | Honorário Contratado"])
     rec_partido    = soma_entradas(df, ["REC | Honorário Partido"])
     rec_sucumb     = soma_entradas(df, ["REC | Honorário Sucumbencial"])
     rec_exito      = soma_entradas(df, ["REC | Honorário Êxito"])
     rec_comp       = soma_entradas(df, ["REC | Honorário Compensação/liminar"])
-    total_receita  = rec_avulso + rec_contratado + rec_partido + rec_sucumb + rec_exito + rec_comp
 
+    # Categorias de receita adicionadas dinamicamente
+    rec_extras = {
+        cat: soma_entradas(df, [cat])
+        for cat in cats_receita
+        if cat not in _RECEITA_HARDCODED
+    }
+
+    total_receita = (
+        rec_avulso + rec_contratado + rec_partido +
+        rec_sucumb + rec_exito + rec_comp +
+        sum(rec_extras.values())
+    )
+
+    # ── Custos diretos ────────────────────────────────────────────────────────
     cus_parceiro = soma(df, ["CUS | Parceiro Jurídico"])
     cus_dilig    = soma(df, ["CUS | Diligencia"])
     cus_vini     = soma(df, ["CUS | Participação Vinicius Fraga"])
     desp_cliente = soma(df, ["Despesa do cliente"])
 
-    # Participação em contrato detalhada por beneficiário
-    part_df = df[df["Categoria"] == "CUS | Participação contrato"].copy()
+    part_df        = df[df["Categoria"] == "CUS | Participação contrato"].copy()
     cus_part_total = part_df["Valor"].sum()
 
-    total_custos = cus_parceiro + cus_part_total + cus_dilig + cus_vini + desp_cliente
+    # Categorias de custo adicionadas dinamicamente
+    cus_extras = {
+        cat: soma(df, [cat])
+        for cat in cats_custo_direto
+        if cat not in _CUSTO_HARDCODED
+    }
+
+    provisao     = -abs(provisao_vinicius) if provisao_vinicius else 0.0
+    total_custos = (
+        cus_parceiro + cus_part_total + cus_dilig +
+        cus_vini + desp_cliente + provisao +
+        sum(cus_extras.values())
+    )
+
     lucro_bruto = total_receita + total_custos
 
-    des_values = {cat: soma(df, [cat]) for cat in CATS_DESPESA_OP}
-    provisao = -abs(provisao_vinicius) if provisao_vinicius else 0.0
-    total_despesas_op = sum(des_values.values()) + provisao
-
+    # ── Despesas operacionais ─────────────────────────────────────────────────
+    des_values         = {cat: soma(df, [cat]) for cat in cats_despesa_op}
+    total_despesas_op  = sum(des_values.values())
     resultado_operacional = lucro_bruto + total_despesas_op
 
+    # ── Impostos ──────────────────────────────────────────────────────────────
     imp_simples = soma(df, ["IMP | Simples Nacional"])
     imp_iptu    = soma(df, ["IMP | IPTU"])
     imp_inss    = soma(df, ["IMP | INSS"])
-    total_imp   = imp_simples + imp_iptu + imp_inss
 
+    # Categorias de imposto adicionadas dinamicamente
+    imp_extras = {
+        cat: soma(df, [cat])
+        for cat in cats_imposto
+        if cat not in _IMPOSTO_HARDCODED
+    }
+
+    total_imp     = imp_simples + imp_iptu + imp_inss + sum(imp_extras.values())
     lucro_liquido = resultado_operacional + total_imp
 
+    # ── Monta DRE ─────────────────────────────────────────────────────────────
     contas  = ["RECEITAS OPERACIONAIS"]
     valores = [total_receita]
     for label, val in [
@@ -140,22 +254,18 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     ]:
         contas.append(f"  {label}")
         valores.append(val)
+    # Receitas dinâmicas extras
+    for cat, val in rec_extras.items():
+        contas.append(f"  {cat.replace('REC | ', '')}")
+        valores.append(val)
 
     contas  += ["CUSTOS DIRETOS"]
     valores += [total_custos]
-
-    # Parceiro Jurídico
     contas.append("  Parceiro Jurídico")
     valores.append(cus_parceiro)
-
-    # Participação em Contrato — detalhado por beneficiário
+    # Participação em Contrato — apenas total (sem detalhamento por beneficiário)
     contas.append("  Participação em Contrato")
     valores.append(cus_part_total)
-    for _, row in part_df.iterrows():
-        beneficiario = str(row["Pago para / Recebido de"])[:35] if row["Pago para / Recebido de"] else "Não identificado"
-        contas.append(f"    {beneficiario}")
-        valores.append(row["Valor"])
-
     for label, val in [
         ("Diligência",                  cus_dilig),
         ("Participação Vinicius Fraga", cus_vini),
@@ -163,6 +273,13 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     ]:
         contas.append(f"  {label}")
         valores.append(val)
+    # Custos diretos dinâmicos extras
+    for cat, val in cus_extras.items():
+        contas.append(f"  {cat.replace('CUS | ', '')}")
+        valores.append(val)
+    if provisao_vinicius:
+        contas.append("  Provisão Repasse Ex-Sócio")
+        valores.append(provisao)
 
     contas  += ["LUCRO BRUTO"]
     valores += [lucro_bruto]
@@ -172,9 +289,6 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     for cat, val in des_values.items():
         contas.append(f"  {cat.replace('DES | ', '')}")
         valores.append(val)
-    if provisao_vinicius:
-        contas.append("  Provisão Repasse Ex-Sócio")
-        valores.append(provisao)
 
     contas  += ["RESULTADO OPERACIONAL"]
     valores += [resultado_operacional]
@@ -188,43 +302,90 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     ]:
         contas.append(f"  {label}")
         valores.append(val)
+    # Impostos dinâmicos extras
+    for cat, val in imp_extras.items():
+        contas.append(f"  {cat.replace('IMP | ', '')}")
+        valores.append(val)
 
     contas  += ["LUCRO LÍQUIDO"]
     valores += [lucro_liquido]
 
-    dre_operacional = pd.DataFrame({"Conta": contas, "Valor (R$)": valores})
+    dre_operacional = pd.DataFrame({"Conta": contas, "Valor (R$)": [round(v, 2) for v in valores]})
 
-    rec_fin_val = soma_entradas(df, ["REC | Receita Financeira"])
-    venda_ativo = soma_entradas(df, ["REC | Venda ativo"])
+    # ── Tabelas laterais ──────────────────────────────────────────────────────
+
+    # Receita Financeira — categorias fixas + dinâmicas
+    cats_receita_fin = get_cats_receita_fin()
+    _rec_fin_fixas = {
+        "REC | Receita Financeira": "Receita Financeira",
+        "REC | Venda ativo":        "Venda de Ativo",
+    }
+    rec_fin_rows = {label: soma_entradas(df, [cat]) for cat, label in _rec_fin_fixas.items()}
+    for cat in cats_receita_fin:
+        if cat not in _rec_fin_fixas:
+            rec_fin_rows[cat.replace("REC | ", "")] = soma_entradas(df, [cat])
+    rec_fin_total = sum(rec_fin_rows.values())
     receita_financeira = pd.DataFrame({
-        "Descrição": ["Receita Financeira", "Venda de Ativo", "TOTAL"],
-        "Valor (R$)": [rec_fin_val, venda_ativo, rec_fin_val + venda_ativo]
+        "Descrição": list(rec_fin_rows.keys()) + ["TOTAL"],
+        "Valor (R$)": list(rec_fin_rows.values()) + [rec_fin_total],
     })
 
-    soc_dist  = df[df["Categoria"] == "SOC | Distribuição Lucros"]["Valor"].sum()
-    soc_aport = df[df["Categoria"] == "SOC | Aporte Sócio"]["Valor"].sum()
+    # Societário — categorias fixas + dinâmicas
+    cats_societario = get_cats_societario()
+    _soc_fixas = {
+        "SOC | Distribuição Lucros": "Distribuição de Lucros",
+        "SOC | Aporte Sócio":        "Aporte de Sócio",
+    }
+    soc_rows = {label: df[df["Categoria"] == cat]["Valor"].sum() for cat, label in _soc_fixas.items()}
+    for cat in cats_societario:
+        if cat not in _soc_fixas:
+            soc_rows[cat.replace("SOC | ", "")] = df[df["Categoria"] == cat]["Valor"].sum()
+    soc_total = sum(soc_rows.values())
     societario = pd.DataFrame({
-        "Descrição": ["Distribuição de Lucros", "Aporte de Sócio", "SALDO SOCIETÁRIO"],
-        "Valor (R$)": [soc_dist, soc_aport, soc_dist + soc_aport]
+        "Descrição": list(soc_rows.keys()) + ["SALDO SOCIETÁRIO"],
+        "Valor (R$)": list(soc_rows.values()) + [soc_total],
     })
 
-    emp_pag   = df[df["Categoria"].isin(["FIN | Empréstimo Bancário", "FIN | Empréstimo bancário", "FIN | Pagamento Empréstimo"])]["Valor"].sum()
-    cons_prin = df[df["Categoria"] == "FIN | Consórcio Principal"]["Valor"].sum()
-    juros     = df[df["Categoria"].isin(["FIN | Juros Bancários", "FIN | Juros bancários"])]["Valor"].sum()
+    # Empréstimos — categorias fixas + dinâmicas
+    cats_emprestimo = get_cats_emprestimo()
+    _emp_fixas = {
+        "Empréstimo Bancário": ["FIN | Empréstimo Bancário", "FIN | Empréstimo bancário", "FIN | Pagamento Empréstimo"],
+        "Consórcio Principal": ["FIN | Consórcio Principal"],
+        "Juros Bancários":     ["FIN | Juros Bancários", "FIN | Juros bancários"],
+    }
+    _emp_fixas_cats = {cat for cats in _emp_fixas.values() for cat in cats}
+    emp_rows = {label: df[df["Categoria"].isin(cats)]["Valor"].sum() for label, cats in _emp_fixas.items()}
+    for cat in cats_emprestimo:
+        if cat not in _emp_fixas_cats:
+            emp_rows[cat.replace("FIN | ", "")] = df[df["Categoria"] == cat]["Valor"].sum()
+    emp_total = sum(emp_rows.values())
     emprestimos = pd.DataFrame({
-        "Descrição": ["Empréstimo Bancário", "Consórcio Principal", "Juros Bancários", "TOTAL"],
-        "Valor (R$)": [emp_pag, cons_prin, juros, emp_pag + cons_prin + juros]
+        "Descrição": list(emp_rows.keys()) + ["TOTAL"],
+        "Valor (R$)": list(emp_rows.values()) + [emp_total],
     })
 
+    # Transitório — categorias fixas + dinâmicas
+    cats_transitorio = get_cats_transitorio()
+    _trans_fixas = {"REP | Repasse Cliente", "REP | Valores transitórios"}
     rep_cliente_val = df[df["Categoria"] == "REP | Repasse Cliente"]["Valor"].sum()
     val_tr_e = df[(df["Categoria"] == "REP | Valores transitórios") & (df["Tipo"] == "Entrada")]["Valor"].sum()
     val_tr_s = df[(df["Categoria"] == "REP | Valores transitórios") & (df["Tipo"] == "Saída")]["Valor"].sum()
+    trans_rows = {
+        "Repasse Cliente":      rep_cliente_val,
+        "Entradas Transitórias": val_tr_e,
+        "Saídas Transitórias":   val_tr_s,
+    }
+    for cat in cats_transitorio:
+        if cat not in _trans_fixas:
+            trans_rows[cat.replace("REP | ", "")] = df[df["Categoria"] == cat]["Valor"].sum()
+    trans_total = sum(trans_rows.values())
     transitorio = pd.DataFrame({
-        "Descrição": ["Repasse Cliente", "Entradas Transitórias", "Saídas Transitórias", "SALDO TRANSITÓRIO"],
-        "Valor (R$)": [rep_cliente_val, val_tr_e, val_tr_s, rep_cliente_val + val_tr_e + val_tr_s]
+        "Descrição": list(trans_rows.keys()) + ["SALDO TRANSITÓRIO"],
+        "Valor (R$)": list(trans_rows.values()) + [trans_total],
     })
 
-    # ── Aba Receitas ─────────────────────────────────────────────────────────
+    # ── Aba Receitas ──────────────────────────────────────────────────────────
+    # Lista base + dinâmicas extras (sem duplicar as fixas já mapeadas)
     CATS_RECEITA_ORDEM = [
         ("REC | Honorário Avulso",             "Honorário Avulso"),
         ("REC | Honorário Contratado",          "Honorário Contratado"),
@@ -236,6 +397,11 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         ("REC | Receita Financeira",            "Receita Financeira"),
         ("REC | Venda ativo",                   "Venda de Ativo"),
     ]
+    _cats_receita_ordem_keys = {c for c, _ in CATS_RECEITA_ORDEM}
+    for cat in cats_receita:
+        if cat not in _cats_receita_ordem_keys:
+            CATS_RECEITA_ORDEM.append((cat, cat.replace("REC | ", "")))
+
     blocos = []
     for cat, label in CATS_RECEITA_ORDEM:
         bloco = df[
@@ -258,14 +424,14 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
         "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
     })
 
-    # ── Aba Despesas — igual às receitas: lançamento a lançamento com total ──
-    CATS_DESPESA_DETALHE = CATS_CUSTO_DIRETO + CATS_DESPESA_OP + CATS_IMPOSTO
+    # ── Aba Despesas ──────────────────────────────────────────────────────────
+    CATS_DESPESA_DETALHE = cats_custo_direto + cats_despesa_op + cats_imposto
     CATS_LABELS = {}
-    for c in CATS_CUSTO_DIRETO:
+    for c in cats_custo_direto:
         CATS_LABELS[c] = c.replace("CUS | ", "")
-    for c in CATS_DESPESA_OP:
+    for c in cats_despesa_op:
         CATS_LABELS[c] = c.replace("DES | ", "")
-    for c in CATS_IMPOSTO:
+    for c in cats_imposto:
         CATS_LABELS[c] = c.replace("IMP | ", "")
     CATS_LABELS["Despesa do cliente"] = "Despesa do Cliente"
 
@@ -305,10 +471,11 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
 
 
 def gerar_ranking_clientes(df):
+    cats_receita = get_cats_receita()
     ranking = (
         df[
             (df["Tipo"] == "Entrada") &
-            (df["Categoria"].isin(CATS_RECEITA))
+            (df["Categoria"].isin(cats_receita))
         ]
         .groupby("Pago para / Recebido de")["Valor"]
         .sum()
@@ -325,13 +492,19 @@ def gerar_ranking_clientes(df):
 
 
 def gerar_centro_custos(df):
+    cats_receita    = get_cats_receita()
+    cats_despesa_op = get_cats_despesa_op()
+    cats_imposto    = get_cats_imposto()
+    cats_custo      = get_cats_custo_direto()
+
     receita = (
-        df[(df["Tipo"] == "Entrada") & (df["Categoria"].isin(CATS_RECEITA))]
+        df[(df["Tipo"] == "Entrada") & (df["Categoria"].isin(cats_receita))]
         .groupby("Centro de custo")["Valor"].sum()
         .rename("RECEITA (R$)")
     )
+    todas_saidas = cats_custo + cats_despesa_op + cats_imposto
     despesa = (
-        df[(df["Tipo"] == "Saída") & (df["Categoria"].isin(CATS_DESPESA_OP + CATS_IMPOSTO))]
+        df[(df["Tipo"] == "Saída") & (df["Categoria"].isin(todas_saidas))]
         .groupby("Centro de custo")["Valor"].sum()
         .rename("DESPESA (R$)")
     )
