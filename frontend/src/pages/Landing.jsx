@@ -20,7 +20,7 @@ export default function Landing() {
     const body = encodeURIComponent(
       `Nome: ${form.nome}\nEmail: ${form.email}\nEscritório: ${form.escritorio}\nTelefone: ${form.telefone}`
     );
-    window.open(`mailto:raquel@ledra.com.br?subject=${subject}&body=${body}`);
+    window.open(`mailto:bomjardimraquel@gmail.com?subject=${subject}&body=${body}`);
     setEnviado(true);
     setEnviando(false);
   };
@@ -199,7 +199,7 @@ export default function Landing() {
             <button className="l-btn-wa" onClick={() => setShowCadastro(true)}>
               Solicitar acesso
             </button>
-            <a href="https://wa.me/SEU_NUMERO" className="l-btn-email">
+            <a href="https://wa.me/5573988621352" className="l-btn-email">
               <i className="ti ti-brand-whatsapp" aria-hidden="true"></i>
               WhatsApp
             </a>

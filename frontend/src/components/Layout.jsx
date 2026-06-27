@@ -11,10 +11,12 @@ export default function Layout({ children }) {
   return (
     <div style={styles.shell}>
       <div style={styles.sidebar}>
-        <div style={styles.logo}>
-          <FaciorIcon size={28} />
-          <span style={styles.logoText}>Facior</span>
-        </div>
+        <NavLink to="/" style={{ textDecoration: "none" }}>
+          <div style={styles.logo}>
+            <FaciorIcon size={28} />
+            <span style={styles.logoText}>Facior</span>
+          </div>
+        </NavLink>
 
         <nav style={styles.nav}>
           <NavItem to="/dashboard" label="Relatório" icon="ti-chart-bar" />
@@ -72,6 +74,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: 10,
+    cursor: "pointer",
   },
   logoText: {
     fontSize: 15,
