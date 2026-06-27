@@ -82,6 +82,7 @@ export default function Dashboard() {
 
   const handleGerar = async () => {
     if (!file) { setError("Selecione um arquivo .xlsx"); return; }
+    if (!file.name.endsWith(".xlsx")) { setError("O arquivo deve estar no formato .xlsx"); return; }
     setError("");
     setLoading(true);
     setBlobUrl(null);
@@ -90,7 +91,17 @@ export default function Dashboard() {
       setBlobUrl({ url: URL.createObjectURL(blob), nome: nomeArquivo });
       setDados(resumo);
     } catch (err) {
-      setError(err.message);
+      if (!navigator.onLine) {
+        setError("Sem conexão com a internet. Verifique sua rede e tente novamente.");
+      } else if (err.message?.includes("401")) {
+        setError("Sessão expirada. Faça login novamente.");
+      } else if (err.message?.includes("400")) {
+        setError("Arquivo inválido. Certifique-se de exportar o arquivo correto do Astrea.");
+      } else if (err.message?.includes("500")) {
+        setError("Erro ao processar o arquivo. Verifique se o arquivo não está corrompido e tente novamente.");
+      } else {
+        setError(err.message || "Erro inesperado. Tente novamente.");
+      }
     } finally {
       setLoading(false);
     }
@@ -162,7 +173,7 @@ export default function Dashboard() {
               <div style={s.aviso}>
                 <i className="ti ti-alert-triangle" style={{fontSize:16, flexShrink:0}} />
                 <div>
-                  <div style={s.avisoTitulo}>Categorias não reconhecidas (não incluídas no relatório)</div>
+                  <div style={s.avisoTitulo}>Categorias não reconhecidas — não incluídas no relatório</div>
                   <div style={s.avisoLista}>{dados.categoriasIgnoradas.join(" · ")}</div>
                   <div style={s.avisoValor}>Total ignorado: {formatBRL(dados.valorIgnorado)}</div>
                 </div>
@@ -192,7 +203,12 @@ export default function Dashboard() {
               <input style={s.provisaoInput} type="number" min="0" step="100"
                 value={provisao} onChange={(e) => setProvisao(parseFloat(e.target.value)||0)} />
             </div>
-            {error && <div style={s.error}>{error}</div>}
+            {error && (
+              <div style={s.error}>
+                <i className="ti ti-alert-circle" style={{fontSize:15, flexShrink:0}} />
+                {error}
+              </div>
+            )}
             <button style={loading ? s.btnOff : s.btnGerar} onClick={handleGerar} disabled={loading}>
               {loading ? "Gerando relatório..." : "Gerar relatório"}
             </button>
@@ -263,7 +279,7 @@ const s = {
   provisao: { background:"#fff", border:"0.5px solid #E0DEDD", borderRadius:10, padding:"13px 18px", display:"flex", alignItems:"center", gap:12 },
   provisaoLabel: { fontSize:13, color:"#0C2340", flex:1 },
   provisaoInput: { border:"0.5px solid #D3D1C7", borderRadius:8, padding:"7px 12px", fontSize:13, width:130, textAlign:"right", background:"#F7F5F0", color:"#0C2340", fontFamily:"inherit" },
-  error: { background:"#FDE8E8", color:"#A32D2D", borderRadius:8, padding:"10px 14px", fontSize:13 },
+  error: { background:"#FDE8E8", color:"#A32D2D", borderRadius:8, padding:"10px 14px", fontSize:13, display:"flex", alignItems:"center", gap:8 },
   btnGerar: { background:"#0C2340", color:"#fff", border:"none", borderRadius:24, padding:13, fontSize:14, fontWeight:600, cursor:"pointer", boxShadow:"0 4px 14px rgba(12,35,64,0.18)", fontFamily:"inherit" },
   btnOff: { background:"#B5D4F4", color:"#0C2340", border:"none", borderRadius:24, padding:13, fontSize:14, cursor:"not-allowed", fontFamily:"inherit" },
   btnRow: { display:"flex", gap:12 },
