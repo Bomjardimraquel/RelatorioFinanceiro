@@ -107,9 +107,9 @@ async def gerar_relatorio(
         c for c in df["Categoria"].dropna().unique()
         if c.strip().lower() not in conhecidas_norm
     )
-    valor_ignorado = round(
+    valor_ignorado = float(round(
         df[df["Categoria"].isin(cats_ignoradas)]["Valor"].abs().sum(), 2
-    ) if cats_ignoradas else 0.0
+    )) if cats_ignoradas else 0.0
     try:
         primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
         mes_nome      = MESES[primeira_data.month]
@@ -230,7 +230,7 @@ async def gerar_relatorio(
         "despesas":           despesas_grafico,
         "categoriasIgnoradas": cats_ignoradas,
         "valorIgnorado":      valor_ignorado,
-    }, ensure_ascii=False)
+    }, ensure_ascii=True)
 
     headers = {
         "X-Dados": dados_json,
