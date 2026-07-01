@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getCategorias, addCategoria, deleteCategoria } from "../services/api";
 
 const GRUPOS_LABELS = {
@@ -20,6 +20,9 @@ export default function Categorias() {
   const [novaCateg, setNovaCateg] = useState("");
   const [novoGrupo, setNovoGrupo] = useState("CATS_DESPESA_OP");
   const [adding, setAdding]       = useState(false);
+  const [editing, setEditing]     = useState(null); // { grupo, nome }
+  const [editVal, setEditVal]     = useState("");
+  const editRef                   = useRef();
 
   useEffect(() => {
     getCategorias()
@@ -27,6 +30,10 @@ export default function Categorias() {
       .catch(() => setError("Erro ao carregar categorias"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (editing && editRef.current) editRef.current.focus();
+  }, [editing]);
 
   const handleAdd = async () => {
     if (!novaCateg.trim()) return;
@@ -54,6 +61,36 @@ export default function Categorias() {
       setCats(categorias);
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleEditStart = (grupo, nome) => {
+    setEditing({ grupo, nome });
+    setEditVal(nome);
+  };
+
+  const handleEditCancel = () => {
+    setEditing(null);
+    setEditVal("");
+  };
+
+  const handleEditSave = async () => {
+    if (!editVal.trim() || editVal.trim() === editing.nome) {
+      handleEditCancel();
+      return;
+    }
+    setError("");
+    try {
+      await deleteCategoria(editing.grupo, editing.nome);
+      const { categorias } = await addCategoria(editVal.trim(), editing.grupo);
+      setCats(categorias);
+      setSuccess("Categoria atualizada com sucesso!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEditing(null);
+      setEditVal("");
     }
   };
 
@@ -108,18 +145,42 @@ export default function Categorias() {
                 <span style={styles.groupCount}>{lista.length}</span>
               </div>
               <div style={styles.tagList}>
-                {lista.map((cat) => (
-                  <div key={cat} style={styles.tag}>
-                    <span style={styles.tagText}>{cat}</span>
-                    <button
-                      style={styles.tagDelete}
-                      onClick={() => handleDelete(grupo, cat)}
-                      title="Remover"
-                    >
-                      <i className="ti ti-x" style={{ fontSize: 12 }} aria-hidden="true"></i>
-                    </button>
-                  </div>
-                ))}
+                {lista.map((cat) => {
+                  const isEditing = editing?.grupo === grupo && editing?.nome === cat;
+                  return isEditing ? (
+                    <div key={cat} style={styles.tagEditing}>
+                      <input
+                        ref={editRef}
+                        style={styles.editInput}
+                        value={editVal}
+                        onChange={(e) => setEditVal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleEditSave();
+                          if (e.key === "Escape") handleEditCancel();
+                        }}
+                      />
+                      <button style={styles.btnConfirm} onClick={handleEditSave} title="Confirmar">✓</button>
+                      <button style={styles.btnCancel} onClick={handleEditCancel} title="Cancelar">×</button>
+                    </div>
+                  ) : (
+                    <div key={cat} style={styles.tag}>
+                      <span
+                        style={styles.tagText}
+                        onClick={() => handleEditStart(grupo, cat)}
+                        title="Clique para editar"
+                      >
+                        {cat}
+                      </span>
+                      <button
+                        style={styles.tagDelete}
+                        onClick={() => handleDelete(grupo, cat)}
+                        title="Remover"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
                 {lista.length === 0 && (
                   <span style={styles.empty}>Nenhuma categoria</span>
                 )}
@@ -196,11 +257,31 @@ const styles = {
     background: "#F7F5F0", border: "0.5px solid #D3D1C7",
     borderRadius: 6, padding: "5px 10px",
   },
-  tagText: { fontSize: 12, color: "#0C2340" },
+  tagText: {
+    fontSize: 12, color: "#0C2340", cursor: "pointer",
+  },
   tagDelete: {
-    background: "none", border: "none", color: "#888780",
-    cursor: "pointer", lineHeight: 1, padding: 0,
-    display: "flex", alignItems: "center",
+    background: "none", border: "none", color: "#A32D2D",
+    cursor: "pointer", lineHeight: 1, padding: "0 0 0 2px",
+    display: "flex", alignItems: "center", fontSize: 15, fontWeight: 600,
+  },
+  tagEditing: {
+    display: "flex", alignItems: "center", gap: 4,
+    background: "#fff", border: "1px solid #185FA5",
+    borderRadius: 6, padding: "3px 6px",
+  },
+  editInput: {
+    border: "none", outline: "none", fontSize: 12,
+    color: "#0C2340", background: "transparent",
+    fontFamily: "inherit", width: 180,
+  },
+  btnConfirm: {
+    background: "none", border: "none", color: "#3B6D11",
+    cursor: "pointer", fontSize: 15, fontWeight: 700, padding: "0 2px",
+  },
+  btnCancel: {
+    background: "none", border: "none", color: "#A32D2D",
+    cursor: "pointer", fontSize: 15, fontWeight: 700, padding: "0 2px",
   },
   empty: { fontSize: 12, color: "#B4B2A9", fontStyle: "italic" },
   loading: { padding: 40, textAlign: "center", color: "#5F5E5A" },
