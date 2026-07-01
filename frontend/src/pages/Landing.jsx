@@ -108,8 +108,8 @@ export default function Landing() {
       {/* HERO */}
       <div className="l-hero">
         <h1 className="l-hero-title">
-          Decisões estratégicas exigem agilidade.<br />
-          <span className="l-gold">Seus relatórios também.</span>
+          Decisões estratégicas exigem agilidade<br />
+          <span className="l-gold">Seus relatórios também</span>
         </h1>
         <p className="l-hero-sub">
           Foque na estratégia e deixe o trabalho manual conosco. Gere relatórios customizados, com design profissional e dados precisos em menos tempo do que você leva para tomar um café.

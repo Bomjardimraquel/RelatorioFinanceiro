@@ -21,11 +21,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ── Usuários ─────────────────────────────────────────────────────────────────
 def load_users() -> dict:
-    # Tenta variável de ambiente primeiro (Railway)
     users_env = os.getenv("USERS_JSON")
     if users_env:
         return json.loads(users_env)
-    # Fallback para arquivo local
+
     if USERS_FILE.exists():
         with open(USERS_FILE) as f:
             return json.load(f)
