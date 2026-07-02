@@ -23,8 +23,9 @@ USERS_MOCK = {"teste": USUARIO_TESTE}
 
 @pytest.fixture
 def client():
-    """Client com usuário mockado."""
-    with patch("auth.load_users", return_value=USERS_MOCK):
+    """Client com usuário mockado e banco mockado."""
+    with patch("auth.load_users", return_value=USERS_MOCK), \
+         patch("database.init_db"):
         from main import app
         with TestClient(app) as c:
             yield c
@@ -176,16 +177,17 @@ def test_relatorio_categorias_ignoradas(client, headers):
 # ── Categorias ────────────────────────────────────────────────────────────────
 
 def test_get_categorias(client, headers):
-    resp = client.get("/categorias", headers=headers)
+    with patch("database.load_categorias", return_value={"CATS_RECEITA": [], "CATS_DESPESA_OP": []}):
+        resp = client.get("/categorias", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
     assert "CATS_RECEITA" in data
     assert "CATS_DESPESA_OP" in data
 
-def test_add_categoria(client, headers, tmp_path):
-    cats_file = tmp_path / "categorias.json"
-    cats_file.write_text(json.dumps({"CATS_RECEITA": [], "CATS_DESPESA_OP": []}))
-    with patch("main.CATS_FILE", cats_file):
+def test_add_categoria(client, headers):
+    cats_resultado = {"CATS_RECEITA": ["REC | Nova Categoria"], "CATS_DESPESA_OP": []}
+    with patch("main.categoria_existe", return_value=False), \
+         patch("main.db_add_categoria", return_value=cats_resultado):
         resp = client.post(
             "/categorias",
             headers=headers,
@@ -194,10 +196,8 @@ def test_add_categoria(client, headers, tmp_path):
     assert resp.status_code == 200
     assert "REC | Nova Categoria" in resp.json()["categorias"]["CATS_RECEITA"]
 
-def test_add_categoria_duplicada(client, headers, tmp_path):
-    cats_file = tmp_path / "categorias.json"
-    cats_file.write_text(json.dumps({"CATS_RECEITA": ["REC | Já Existe"]}))
-    with patch("main.CATS_FILE", cats_file):
+def test_add_categoria_duplicada(client, headers):
+    with patch("main.categoria_existe", return_value=True):
         resp = client.post(
             "/categorias",
             headers=headers,
@@ -213,10 +213,10 @@ def test_add_categoria_grupo_invalido(client, headers):
     )
     assert resp.status_code == 400
 
-def test_delete_categoria(client, headers, tmp_path):
-    cats_file = tmp_path / "categorias.json"
-    cats_file.write_text(json.dumps({"CATS_RECEITA": ["REC | Para Deletar"]}))
-    with patch("main.CATS_FILE", cats_file):
+def test_delete_categoria(client, headers):
+    cats_resultado = {"CATS_RECEITA": [], "CATS_DESPESA_OP": []}
+    with patch("main.categoria_existe", return_value=True), \
+         patch("main.db_delete_categoria", return_value=cats_resultado):
         resp = client.delete(
             "/categorias/CATS_RECEITA/REC__PIPE__Para Deletar",
             headers=headers,
