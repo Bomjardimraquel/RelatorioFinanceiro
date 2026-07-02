@@ -16,9 +16,20 @@ from auth import (
     decode_token, get_current_user, load_users, USERS_FILE
 )
 from relatorios import gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos, get_todas_categorias_conhecidas
+from database import (
+    init_db,
+    load_categorias as db_load_categorias,
+    add_categoria as db_add_categoria,
+    delete_categoria as db_delete_categoria,
+    categoria_existe,
+)
 from estilos import aplicar_estilos
 
 app = FastAPI(title="Relatório Financeiro API")
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,7 +39,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CATS_FILE = Path(__file__).parent / "categorias.json"
 MESES = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
@@ -244,58 +254,29 @@ async def gerar_relatorio(
     )
 
 
-def load_categorias() -> dict:
-    if not CATS_FILE.exists():
-        from relatorios import (
-            CATS_RECEITA, CATS_CUSTO_DIRETO, CATS_DESPESA_OP,
-            CATS_RESULTADO_FIN, CATS_IMPOSTO, CATS_RECEITA_FIN,
-            CATS_SOCIETARIO, CATS_EMPRESTIMO, CATS_TRANSITORIO,
-        )
-        cats = {
-            "CATS_RECEITA":       CATS_RECEITA,
-            "CATS_CUSTO_DIRETO":  CATS_CUSTO_DIRETO,
-            "CATS_DESPESA_OP":    CATS_DESPESA_OP,
-            "CATS_RESULTADO_FIN": CATS_RESULTADO_FIN,
-            "CATS_IMPOSTO":       CATS_IMPOSTO,
-            "CATS_RECEITA_FIN":   CATS_RECEITA_FIN,
-            "CATS_SOCIETARIO":    CATS_SOCIETARIO,
-            "CATS_EMPRESTIMO":    CATS_EMPRESTIMO,
-            "CATS_TRANSITORIO":   CATS_TRANSITORIO,
-        }
-        with open(CATS_FILE, "w") as f:
-            json.dump(cats, f, indent=2, ensure_ascii=False)
-        return cats
-    with open(CATS_FILE) as f:
-        return json.load(f)
-
-
 @app.get("/categorias")
 def get_categorias(current_user: dict = Depends(get_current_user)):
-    return load_categorias()
+    return db_load_categorias()
 
 
 @app.post("/categorias")
 def add_categoria(body: CategoriaRequest, current_user: dict = Depends(get_current_user)):
-    cats = load_categorias()
-    if body.grupo not in cats:
+    from database import GRUPOS_HARDCODED
+    if body.grupo not in GRUPOS_HARDCODED:
         raise HTTPException(status_code=400, detail=f"Grupo '{body.grupo}' não existe")
-    if body.nome in cats[body.grupo]:
+    if categoria_existe(body.grupo, body.nome):
         raise HTTPException(status_code=400, detail="Categoria já existe neste grupo")
-    cats[body.grupo].append(body.nome)
-    with open(CATS_FILE, "w") as f:
-        json.dump(cats, f, indent=2, ensure_ascii=False)
+    cats = db_add_categoria(body.nome, body.grupo)
     return {"message": "Categoria adicionada", "categorias": cats}
 
 
 @app.delete("/categorias/{grupo}/{nome}")
 def delete_categoria(grupo: str, nome: str, current_user: dict = Depends(get_current_user)):
-    cats = load_categorias()
-    if grupo not in cats:
+    from database import GRUPOS_HARDCODED
+    if grupo not in GRUPOS_HARDCODED:
         raise HTTPException(status_code=400, detail=f"Grupo '{grupo}' não existe")
     nome_decoded = nome.replace("__PIPE__", " | ")
-    if nome_decoded not in cats[grupo]:
+    if not categoria_existe(grupo, nome_decoded):
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    cats[grupo].remove(nome_decoded)
-    with open(CATS_FILE, "w") as f:
-        json.dump(cats, f, indent=2, ensure_ascii=False)
+    cats = db_delete_categoria(grupo, nome_decoded)
     return {"message": "Categoria removida", "categorias": cats}

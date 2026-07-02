@@ -87,11 +87,28 @@ CATS_TRANSITORIO = [
     "REP | Repasse Cliente",
 ]
 
-# ── Categorias dinâmicas via categorias.json ──────────────────────────────────
+# ── Categorias dinâmicas via banco de dados (fallback: categorias.json) ───────
 
 CATS_FILE = Path(__file__).parent / "categorias.json"
 
 def _carregar_cats_dinamicas():
+    """Tenta carregar do banco de dados; fallback para categorias.json."""
+    try:
+        import os
+        if os.environ.get("DATABASE_URL"):
+            import psycopg2
+            conn = psycopg2.connect(os.environ["DATABASE_URL"])
+            with conn.cursor() as cur:
+                cur.execute("SELECT grupo, nome FROM categorias ORDER BY id")
+                rows = cur.fetchall()
+            conn.close()
+            result = {}
+            for grupo, nome in rows:
+                result.setdefault(grupo, []).append(nome)
+            return result
+    except Exception:
+        pass
+    # Fallback: categorias.json
     if not CATS_FILE.exists():
         return {}
     try:

@@ -9,3 +9,4 @@ xlsxwriter
 openpyxl
 bcrypt
 pyyaml
+psycopg2-binary
