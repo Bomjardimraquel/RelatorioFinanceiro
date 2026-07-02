@@ -163,7 +163,7 @@ export default function Dashboard() {
 
         {dados && (
           <>
-            <div style={s.label}>Resumo — {dados.mesAno}</div>
+            <div style={s.label}>Resumo: {dados.mesAno}</div>
             <div style={s.metrics}>
               <Card label="Receita bruta"         value={formatBRL(dados.receitaBruta)}           color="#185FA5" />
               <Card label="Despesas operacionais" value={formatBRL(Math.abs(dados.totalDespesas))} color="#A32D2D" />
