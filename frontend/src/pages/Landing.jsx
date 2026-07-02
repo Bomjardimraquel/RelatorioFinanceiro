@@ -112,7 +112,7 @@ export default function Landing() {
           <span className="l-gold">Seus relatórios também</span>
         </h1>
         <p className="l-hero-sub">
-          Foque na estratégia e deixe o trabalho manual conosco. Gere relatórios customizados, com design profissional e dados precisos em menos tempo do que você leva para tomar um café
+          Foque na estratégia e deixe o trabalho manual conosco. Gere relatórios customizados, com design profissional e dados precisos em menos tempo do que você leva para tomar um café.
         </p>
         <div className="l-hero-actions">
           <button className="l-btn-dark l-btn-lg" onClick={() => setShowCadastro(true)}>Começar agora</button>
