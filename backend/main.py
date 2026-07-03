@@ -261,8 +261,8 @@ def get_categorias(current_user: dict = Depends(get_current_user)):
 
 @app.post("/categorias")
 def add_categoria(body: CategoriaRequest, current_user: dict = Depends(get_current_user)):
-    from database import GRUPOS_HARDCODED
-    if body.grupo not in GRUPOS_HARDCODED:
+    from database import GRUPOS_VALIDOS
+    if body.grupo not in GRUPOS_VALIDOS:
         raise HTTPException(status_code=400, detail=f"Grupo '{body.grupo}' não existe")
     if categoria_existe(body.grupo, body.nome):
         raise HTTPException(status_code=400, detail="Categoria já existe neste grupo")
@@ -272,8 +272,8 @@ def add_categoria(body: CategoriaRequest, current_user: dict = Depends(get_curre
 
 @app.delete("/categorias/{grupo}/{nome}")
 def delete_categoria(grupo: str, nome: str, current_user: dict = Depends(get_current_user)):
-    from database import GRUPOS_HARDCODED
-    if grupo not in GRUPOS_HARDCODED:
+    from database import GRUPOS_VALIDOS
+    if grupo not in GRUPOS_VALIDOS:
         raise HTTPException(status_code=400, detail=f"Grupo '{grupo}' não existe")
     nome_decoded = nome.replace("__PIPE__", " | ")
     if not categoria_existe(grupo, nome_decoded):
