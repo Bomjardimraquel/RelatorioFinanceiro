@@ -107,33 +107,35 @@ def test_dre_provisao_vinicius(df_completo):
 # ── Categorias dinâmicas ──────────────────────────────────────────────────────
 
 def test_merge_cats_sem_json():
-    """Sem categorias.json, retorna apenas as hardcoded."""
-    from relatorios import _merge_cats, CATS_RECEITA
-    with patch("relatorios.CATS_FILE", Path("/tmp/nao_existe.json")):
-        resultado = _merge_cats(CATS_RECEITA, "CATS_RECEITA")
+    """Sem banco disponível, retorna as listas hardcoded."""
+    from relatorios import get_cats_receita, CATS_RECEITA
+    with patch("relatorios._carregar_cats", return_value={}):
+        resultado = get_cats_receita()
     assert resultado == CATS_RECEITA
 
 def test_merge_cats_com_json(tmp_path):
-    """Categorias do JSON são adicionadas sem duplicatas."""
-    from relatorios import _merge_cats, CATS_RECEITA
-    cats_file = tmp_path / "categorias.json"
-    cats_file.write_text(json.dumps({"CATS_RECEITA": ["REC | GANHO", "REC | Honorário Avulso"]}))
-    with patch("relatorios.CATS_FILE", cats_file):
-        resultado = _merge_cats(CATS_RECEITA, "CATS_RECEITA")
+    """Categorias do banco são retornadas corretamente."""
+    from relatorios import get_cats_receita
+    cats_banco = {"CATS_RECEITA": ["REC | GANHO", "REC | Honorário Avulso"]}
+    with patch("relatorios._carregar_cats", return_value=cats_banco):
+        resultado = get_cats_receita()
     assert "REC | GANHO" in resultado
-    assert resultado.count("REC | Honorário Avulso") == 1  # sem duplicata
+    assert resultado.count("REC | Honorário Avulso") == 1
 
 def test_categoria_dinamica_entra_no_dre(df_completo, tmp_path):
-    """Categoria adicionada via JSON aparece no DRE e entra no total."""
-    from relatorios import gerar_relatorios
+    """Categoria adicionada via banco aparece no DRE e entra no total."""
+    from relatorios import gerar_relatorios, CATS_RECEITA
     df = df_completo.copy()
     df = pd.concat([df, pd.DataFrame([{
         "Data": "15/06/2026", "Categoria": "REC | GANHO", "Tipo": "Entrada",
-        "Valor": 5000.0, "Pago para / Recebido de": "Cliente Z", "Centro de custo": "Civil"
+        "Valor": 5000.0, "Pago para / Recebido de": "Cliente Z",
+        "Centro de custo": "Civil", "Descricao": "Ganho"
     }])], ignore_index=True)
-    cats_file = tmp_path / "categorias.json"
-    cats_file.write_text(json.dumps({"CATS_RECEITA": ["REC | GANHO"]}))
-    with patch("relatorios.CATS_FILE", cats_file):
+    cats_banco = {"CATS_RECEITA": CATS_RECEITA + ["REC | GANHO"],
+                  "CATS_CUSTO_DIRETO": [], "CATS_DESPESA_OP": [],
+                  "CATS_IMPOSTO": [], "CATS_RECEITA_FIN": [],
+                  "CATS_SOCIETARIO": [], "CATS_EMPRESTIMO": [], "CATS_TRANSITORIO": []}
+    with patch("relatorios._carregar_cats", return_value=cats_banco):
         dre, *_ = gerar_relatorios(df)
     total = dre.loc[dre["Conta"] == "RECEITAS OPERACIONAIS", "Valor (R$)"].values[0]
     assert total == 41000.0
