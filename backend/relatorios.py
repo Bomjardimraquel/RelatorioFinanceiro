@@ -108,16 +108,16 @@ def _carregar_cats():
             return result
     except Exception:
         pass
-    # Fallback: listas hardcoded
+    # Fallback: listas vazias (sem banco disponível)
     return {
-        "CATS_RECEITA":      CATS_RECEITA,
-        "CATS_CUSTO_DIRETO": CATS_CUSTO_DIRETO,
-        "CATS_DESPESA_OP":   CATS_DESPESA_OP,
-        "CATS_IMPOSTO":      CATS_IMPOSTO,
-        "CATS_RECEITA_FIN":  CATS_RECEITA_FIN,
-        "CATS_SOCIETARIO":   CATS_SOCIETARIO,
-        "CATS_EMPRESTIMO":   CATS_EMPRESTIMO,
-        "CATS_TRANSITORIO":  CATS_TRANSITORIO,
+        "CATS_RECEITA":      [],
+        "CATS_CUSTO_DIRETO": [],
+        "CATS_DESPESA_OP":   [],
+        "CATS_IMPOSTO":      [],
+        "CATS_RECEITA_FIN":  [],
+        "CATS_SOCIETARIO":   [],
+        "CATS_EMPRESTIMO":   [],
+        "CATS_TRANSITORIO":  [],
     }
 
 def get_cats_receita():
