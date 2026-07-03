@@ -87,12 +87,12 @@ CATS_TRANSITORIO = [
     "REP | Repasse Cliente",
 ]
 
-# ── Categorias dinâmicas via banco de dados (fallback: categorias.json) ───────
+# ── Categorias via banco de dados ─────────────────────────────────────────────
 
 CATS_FILE = Path(__file__).parent / "categorias.json"
 
-def _carregar_cats_dinamicas():
-    """Tenta carregar do banco de dados; fallback para categorias.json."""
+def _carregar_cats():
+    """Carrega todas as categorias do banco. Fallback para hardcoded."""
     try:
         import os
         if os.environ.get("DATABASE_URL"):
@@ -108,59 +108,53 @@ def _carregar_cats_dinamicas():
             return result
     except Exception:
         pass
-    # Fallback: categorias.json
-    if not CATS_FILE.exists():
-        return {}
-    try:
-        with open(CATS_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def _merge_cats(base_list, json_key):
-    dinamicas = _carregar_cats_dinamicas()
-    extras = dinamicas.get(json_key, [])
-    merged = list(base_list)
-    for cat in extras:
-        if cat not in merged:
-            merged.append(cat)
-    return merged
+    # Fallback: listas hardcoded
+    return {
+        "CATS_RECEITA":      CATS_RECEITA,
+        "CATS_CUSTO_DIRETO": CATS_CUSTO_DIRETO,
+        "CATS_DESPESA_OP":   CATS_DESPESA_OP,
+        "CATS_IMPOSTO":      CATS_IMPOSTO,
+        "CATS_RECEITA_FIN":  CATS_RECEITA_FIN,
+        "CATS_SOCIETARIO":   CATS_SOCIETARIO,
+        "CATS_EMPRESTIMO":   CATS_EMPRESTIMO,
+        "CATS_TRANSITORIO":  CATS_TRANSITORIO,
+    }
 
 def get_cats_receita():
-    return _merge_cats(CATS_RECEITA, "CATS_RECEITA")
+    return _carregar_cats().get("CATS_RECEITA", CATS_RECEITA)
 
 def get_cats_custo_direto():
-    return _merge_cats(CATS_CUSTO_DIRETO, "CATS_CUSTO_DIRETO")
+    return _carregar_cats().get("CATS_CUSTO_DIRETO", CATS_CUSTO_DIRETO)
 
 def get_cats_despesa_op():
-    return _merge_cats(CATS_DESPESA_OP, "CATS_DESPESA_OP")
+    return _carregar_cats().get("CATS_DESPESA_OP", CATS_DESPESA_OP)
 
 def get_cats_imposto():
-    return _merge_cats(CATS_IMPOSTO, "CATS_IMPOSTO")
+    return _carregar_cats().get("CATS_IMPOSTO", CATS_IMPOSTO)
 
 def get_cats_receita_fin():
-    return _merge_cats(CATS_RECEITA_FIN, "CATS_RECEITA_FIN")
+    return _carregar_cats().get("CATS_RECEITA_FIN", CATS_RECEITA_FIN)
 
 def get_cats_societario():
-    return _merge_cats(CATS_SOCIETARIO, "CATS_SOCIETARIO")
+    return _carregar_cats().get("CATS_SOCIETARIO", CATS_SOCIETARIO)
 
 def get_cats_emprestimo():
-    return _merge_cats(CATS_EMPRESTIMO, "CATS_EMPRESTIMO")
+    return _carregar_cats().get("CATS_EMPRESTIMO", CATS_EMPRESTIMO)
 
 def get_cats_transitorio():
-    return _merge_cats(CATS_TRANSITORIO, "CATS_TRANSITORIO")
+    return _carregar_cats().get("CATS_TRANSITORIO", CATS_TRANSITORIO)
 
 
 def get_todas_categorias_conhecidas():
-    return list(set(
-        get_cats_receita() + get_cats_custo_direto() + get_cats_despesa_op() +
-        get_cats_imposto() + get_cats_receita_fin() + get_cats_societario() +
-        get_cats_emprestimo() + get_cats_transitorio() +
-        ["Transferência", "Despesa do cliente", "Saldo inicial"]
-    ))
+    cats = _carregar_cats()
+    todas = []
+    for lista in cats.values():
+        todas.extend(lista)
+    todas += ["Transferência", "Despesa do cliente", "Saldo inicial"]
+    return list(set(todas))
 
-# Categorias hardcoded com linha própria no DRE (não são geradas dinamicamente)
-_RECEITA_HARDCODED = {
+# Categorias com linha própria fixa no DRE — mantidas para layout do relatório
+_RECEITA_LINHA_FIXA = {
     "REC | Honorário Avulso",
     "REC | Honorário Contratado",
     "REC | Honorário Partido",
@@ -169,7 +163,7 @@ _RECEITA_HARDCODED = {
     "REC | Honorário Compensação/liminar",
 }
 
-_CUSTO_HARDCODED = {
+_CUSTO_LINHA_FIXA = {
     "CUS | Parceiro Jurídico",
     "CUS | Participação contrato",
     "CUS | Diligencia",
@@ -177,7 +171,7 @@ _CUSTO_HARDCODED = {
     "Despesa do cliente",
 }
 
-_IMPOSTO_HARDCODED = {
+_IMPOSTO_LINHA_FIXA = {
     "IMP | Simples Nacional",
     "IMP | IPTU",
     "IMP | INSS",
@@ -186,13 +180,14 @@ _IMPOSTO_HARDCODED = {
 
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
-    # Carrega listas com merge dinâmico
+    # Carrega listas do banco (ou fallback hardcoded)
     cats_receita      = get_cats_receita()
     cats_custo_direto = get_cats_custo_direto()
     cats_despesa_op   = get_cats_despesa_op()
     cats_imposto      = get_cats_imposto()
 
     # ── Receitas ──────────────────────────────────────────────────────────────
+    # Linhas fixas do DRE (sempre aparecem com label próprio)
     rec_avulso     = soma_entradas(df, ["REC | Honorário Avulso"])
     rec_contratado = soma_entradas(df, ["REC | Honorário Contratado"])
     rec_partido    = soma_entradas(df, ["REC | Honorário Partido"])
@@ -200,11 +195,11 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     rec_exito      = soma_entradas(df, ["REC | Honorário Êxito"])
     rec_comp       = soma_entradas(df, ["REC | Honorário Compensação/liminar"])
 
-    # Categorias de receita adicionadas dinamicamente
+    # Categorias extras (não têm linha fixa no DRE)
     rec_extras = {
         cat: soma_entradas(df, [cat])
         for cat in cats_receita
-        if cat not in _RECEITA_HARDCODED
+        if cat not in _RECEITA_LINHA_FIXA
     }
 
     total_receita = (
@@ -222,11 +217,10 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     part_df        = df[df["Categoria"] == "CUS | Participação contrato"].copy()
     cus_part_total = part_df["Valor"].sum()
 
-    # Categorias de custo adicionadas dinamicamente
     cus_extras = {
         cat: soma(df, [cat])
         for cat in cats_custo_direto
-        if cat not in _CUSTO_HARDCODED
+        if cat not in _CUSTO_LINHA_FIXA
     }
 
     provisao     = -abs(provisao_vinicius) if provisao_vinicius else 0.0
@@ -239,8 +233,8 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     lucro_bruto = total_receita + total_custos
 
     # ── Despesas operacionais ─────────────────────────────────────────────────
-    des_values         = {cat: soma(df, [cat]) for cat in cats_despesa_op}
-    total_despesas_op  = sum(des_values.values())
+    des_values        = {cat: soma(df, [cat]) for cat in cats_despesa_op}
+    total_despesas_op = sum(des_values.values())
     resultado_operacional = lucro_bruto + total_despesas_op
 
     # ── Impostos ──────────────────────────────────────────────────────────────
@@ -248,11 +242,10 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     imp_iptu    = soma(df, ["IMP | IPTU"])
     imp_inss    = soma(df, ["IMP | INSS"])
 
-    # Categorias de imposto adicionadas dinamicamente
     imp_extras = {
         cat: soma(df, [cat])
         for cat in cats_imposto
-        if cat not in _IMPOSTO_HARDCODED
+        if cat not in _IMPOSTO_LINHA_FIXA
     }
 
     total_imp     = imp_simples + imp_iptu + imp_inss + sum(imp_extras.values())
