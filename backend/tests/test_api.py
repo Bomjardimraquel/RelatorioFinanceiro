@@ -177,7 +177,7 @@ def test_relatorio_categorias_ignoradas(client, headers):
 # ── Categorias ────────────────────────────────────────────────────────────────
 
 def test_get_categorias(client, headers):
-    with patch("database.load_categorias", return_value={"CATS_RECEITA": [], "CATS_DESPESA_OP": []}):
+    with patch("main.db_load_categorias", return_value={"CATS_RECEITA": [], "CATS_DESPESA_OP": []}):
         resp = client.get("/categorias", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
