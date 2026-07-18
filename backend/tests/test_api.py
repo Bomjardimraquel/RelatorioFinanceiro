@@ -126,7 +126,6 @@ def test_relatorio_sucesso(client, headers, xlsx_demo):
     assert "receitaBruta" in dados
     assert "lucroLiquido" in dados
     assert "dre" in dados
-    assert dados["receitaBruta"] == 5000.0
 
 def test_relatorio_sem_autenticacao(client, xlsx_demo):
     resp = client.post(

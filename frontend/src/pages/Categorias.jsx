@@ -40,14 +40,22 @@ export default function Categorias() {
     setAdding(true);
     setError("");
     setSuccess("");
+    // Adiciona na UI imediatamente (otimista)
+    const nome = novaCateg.trim();
+    setCats(prev => ({
+      ...prev,
+      [novoGrupo]: [...(prev[novoGrupo] || []), nome]
+    }));
+    setNovaCateg("");
     try {
-      const { categorias } = await addCategoria(novaCateg.trim(), novoGrupo);
+      const { categorias } = await addCategoria(nome, novoGrupo);
       setCats(categorias);
-      setNovaCateg("");
-      setSuccess(`"${novaCateg.trim()}" adicionada com sucesso!`);
+      setSuccess(`"${nome}" adicionada com sucesso!`);
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
+      // Restaura se der erro
       setError(err.message);
+      getCategorias().then(setCats);
     } finally {
       setAdding(false);
     }
@@ -56,11 +64,18 @@ export default function Categorias() {
   const handleDelete = async (grupo, nome) => {
     if (!confirm(`Remover "${nome}"?`)) return;
     setError("");
+    // Remove da UI imediatamente (otimista)
+    setCats(prev => ({
+      ...prev,
+      [grupo]: prev[grupo].filter(c => c !== nome)
+    }));
     try {
       const { categorias } = await deleteCategoria(grupo, nome);
       setCats(categorias);
     } catch (err) {
+      // Restaura se der erro
       setError(err.message);
+      getCategorias().then(setCats);
     }
   };
 
