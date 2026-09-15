@@ -151,7 +151,7 @@ export const addCategoria = async (nome, grupo) => {
 };
 
 export const deleteCategoria = async (grupo, nome) => {
-  const nomeEncoded = nome.replace(" | ", "__PIPE__");
+  const nomeEncoded = nome.replace(" | ", "__PIPE__").replace(/\//g, "__SLASH__");
   const res = await fetchWithAuth(`/categorias/${grupo}/${encodeURIComponent(nomeEncoded)}`, {
     method: "DELETE",
   });

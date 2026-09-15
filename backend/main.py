@@ -275,7 +275,7 @@ def delete_categoria(grupo: str, nome: str, current_user: dict = Depends(get_cur
     from database import GRUPOS_VALIDOS
     if grupo not in GRUPOS_VALIDOS:
         raise HTTPException(status_code=400, detail=f"Grupo '{grupo}' não existe")
-    nome_decoded = nome.replace("__PIPE__", " | ")
+    nome_decoded = nome.replace("__PIPE__", " | ").replace("__SLASH__", "/")
     if not categoria_existe(grupo, nome_decoded):
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     cats = db_delete_categoria(grupo, nome_decoded)
