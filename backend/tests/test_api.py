@@ -225,3 +225,109 @@ def test_delete_categoria(client, headers):
 def test_delete_categoria_sem_autenticacao(client):
     resp = client.delete("/categorias/CATS_RECEITA/REC__PIPE__Teste")
     assert resp.status_code == 401
+
+
+# ── Relatório: layouts do export do Astrea ────────────────────────────────────
+
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+CATS_TESTE = {
+    "CATS_RECEITA": ["REC | Honorário Partido"],
+    "CATS_DESPESA_OP": ["DES | Folha Pagamento", "DES | Pró-Labore"],
+    "CATS_SOCIETARIO": ["SOC | Distribuição Lucros"],
+}
+
+# mesmos lançamentos nos dois layouts: (data, descrição, cliente, categoria, centro, valor, tipo)
+LANCAMENTOS = [
+    ("03/09/2026", "ASSESSORIA MENSAL", "SALUTE LTDA", "REC | Honorário Partido", "Tributário", 1350.85, "Entrada"),
+    ("04/09/2026", "SALÁRIO", "PHILLIPE", "DES | Folha Pagamento", "Tributário", -4000.0, "Saída"),
+    ("04/09/2026", "PRO LABORE", "DANIELA", "DES | Pró-Labore", "Escritório Vitória", -2500.0, "Saída"),
+    ("04/09/2026", "DISTRIBUIÇÃO", "HENRIQUE", "SOC | Distribuição Lucros", "Escritório Vitória", -3723.59, "Saída"),
+]
+
+
+def _xlsx(df):
+    buf = io.BytesIO()
+    df.to_excel(buf, index=False)
+    buf.seek(0)
+    return buf
+
+
+def _layout_antigo():
+    return pd.DataFrame([{
+        "Data": d, "Conta Financeira": "SICOOB", "Descricao": desc, "Categoria": cat,
+        "Centro de custo": cc, "Pago para / Recebido de": cli, "Cliente": cli,
+        "Documento": "", "Caso": "", "Responsavel": "Daniela Fraga",
+        "Valor": v, "Tipo": t, "Status": "Pago",
+    } for d, desc, cli, cat, cc, v, t in LANCAMENTOS])
+
+
+def _layout_novo():
+    """Layout do export do Astrea a partir de set/2026."""
+    return pd.DataFrame([{
+        "DATA": d, "TIPO": t, "DESCRIÇÃO": desc, "CONTATO / CLIENTE": cli, "STATUS": "Pago",
+        "DATA DE VENCIMENTO": d, "DATA DE PAGAMENTO": None, "DATA DE COMPENSAÇÃO": None,
+        "DATA DO REPASSE": None, "VALOR BRUTO": None, "TAXA": None, "VALOR LÍQUIDO": v,
+        "CONTA": "SICOOB - CONTA CORRENTE", "EMISSOR DO BOLETO": None,
+        "PAGO PARA / RECEBIDO DE": cli, "CATEGORIA": cat, "CENTRO DE CUSTO": cc,
+        "CASO": None, "RESPONSAVEL": "Daniela Fraga", "DOCUMENTO": None,
+    } for d, desc, cli, cat, cc, v, t in LANCAMENTOS])
+
+
+def _post_relatorio(client, headers, df):
+    with patch("relatorios._carregar_cats", return_value=CATS_TESTE), \
+         patch("main.get_todas_categorias_conhecidas",
+               return_value=[c for cs in CATS_TESTE.values() for c in cs]):
+        return client.post(
+            "/relatorio", headers=headers,
+            files={"file": ("relatorio.xlsx", _xlsx(df), XLSX_MIME)},
+            data={"provisao": "0"},
+        )
+
+
+def test_relatorio_layout_novo_astrea(client, headers):
+    resp = _post_relatorio(client, headers, _layout_novo())
+    assert resp.status_code == 200
+    dados = json.loads(resp.headers["X-Dados"])
+    assert dados["receitaBruta"] == 1350.85
+    assert dados["categoriasIgnoradas"] == []
+    assert dados["mesAno"] == "Setembro 2026"
+
+
+def test_relatorio_layout_novo_igual_ao_antigo(client, headers):
+    """O mesmo movimento exportado nos dois layouts tem que dar o mesmo resultado."""
+    antigo = json.loads(_post_relatorio(client, headers, _layout_antigo()).headers["X-Dados"])
+    novo = json.loads(_post_relatorio(client, headers, _layout_novo()).headers["X-Dados"])
+    assert novo == antigo
+
+
+def test_relatorio_valor_como_texto_com_virgula(client, headers):
+    df = _layout_novo()
+    df["VALOR LÍQUIDO"] = ["1.350,85", "-4.000,00", "-2.500,00", "-3.723,59"]
+    resp = _post_relatorio(client, headers, df)
+    assert resp.status_code == 200
+    assert json.loads(resp.headers["X-Dados"])["receitaBruta"] == 1350.85
+
+
+def test_relatorio_tipo_sem_acento(client, headers):
+    df = _layout_novo()
+    df["TIPO"] = df["TIPO"].replace({"Saída": "saida"})
+    resp = _post_relatorio(client, headers, df)
+    assert resp.status_code == 200
+    assert json.loads(resp.headers["X-Dados"])["receitaBruta"] == 1350.85
+
+
+def test_relatorio_sem_coluna_categoria_retorna_400_claro(client, headers):
+    df = _layout_novo().drop(columns=["CATEGORIA"])
+    resp = _post_relatorio(client, headers, df)
+    assert resp.status_code == 400
+    assert "Categoria" in resp.json()["detail"]
+    assert "Colunas recebidas" in resp.json()["detail"]
+
+
+def test_relatorio_erro_interno_retorna_500_com_mensagem(client, headers):
+    """Erro inesperado vira 500 com detail (e não 'Failed to fetch' no navegador)."""
+    with patch("main.gerar_relatorios", side_effect=RuntimeError("boom")):
+        resp = _post_relatorio(client, headers, _layout_novo())
+    assert resp.status_code == 500
+    assert "Erro ao processar" in resp.json()["detail"]

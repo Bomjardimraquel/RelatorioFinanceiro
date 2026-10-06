@@ -1,6 +1,8 @@
 import io
 import json
+import logging
 import os
+import unicodedata
 import bcrypt
 from pathlib import Path
 
@@ -25,6 +27,8 @@ from database import (
 )
 from estilos import aplicar_estilos
 
+logger = logging.getLogger("facior")
+
 app = FastAPI(title="Relatório Financeiro API")
 
 @app.on_event("startup")
@@ -44,6 +48,125 @@ MESES = {
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 }
+
+
+# ── Normalização do export do Astrea ──────────────────────────────────────────
+# O Astrea já mudou o layout do export (ex.: "Categoria" → "CATEGORIA",
+# "Valor" → "VALOR LÍQUIDO", "Cliente" → "CONTATO / CLIENTE"). Todo o resto do
+# código trabalha com o layout interno abaixo, então qualquer arquivo é
+# convertido para ele logo na leitura.
+
+COLUNAS_PADRAO = [
+    "Data", "Conta Financeira", "Descricao", "Categoria", "Centro de custo",
+    "Pago para / Recebido de", "Cliente", "Documento", "Caso", "Responsavel",
+    "Valor", "Tipo", "Status",
+]
+
+# Sem essas colunas não há relatório possível. As demais são opcionais
+# (se faltarem, entram vazias).
+COLUNAS_OBRIGATORIAS = [
+    "Data", "Descricao", "Categoria", "Centro de custo",
+    "Pago para / Recebido de", "Valor", "Tipo",
+]
+
+# chave = nome da coluna sem acento, minúsculo e sem espaços sobrando
+MAPA_COLUNAS = {
+    "data": "Data",
+    "conta financeira": "Conta Financeira",
+    "conta": "Conta Financeira",
+    "descricao": "Descricao",
+    "categoria": "Categoria",
+    "centro de custo": "Centro de custo",
+    "pago para / recebido de": "Pago para / Recebido de",
+    "cliente": "Cliente",
+    "contato / cliente": "Cliente",
+    "documento": "Documento",
+    "caso": "Caso",
+    "responsavel": "Responsavel",
+    "valor liquido": "Valor",
+    "valor": "Valor",
+    "tipo": "Tipo",
+    "status": "Status",
+}
+
+
+def _norm(s) -> str:
+    s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
+    return " ".join(s.strip().lower().split())
+
+
+def _renomear_colunas(df: pd.DataFrame) -> pd.DataFrame:
+    normalizadas = {_norm(c) for c in df.columns}
+    novos, usados = [], set()
+    for col in df.columns:
+        chave = _norm(col)
+        # se existe "valor liquido", é ele o Valor; um eventual "valor" fica de fora
+        if chave == "valor" and "valor liquido" in normalizadas:
+            alvo = None
+        else:
+            alvo = MAPA_COLUNAS.get(chave)
+        if alvo is None or alvo in usados:
+            novos.append(str(col).strip())
+        else:
+            novos.append(alvo)
+            usados.add(alvo)
+    df = df.copy()
+    df.columns = novos
+    return df
+
+
+def _para_numero(v):
+    """Aceita número, '1350.85' ou '1.350,85' / 'R$ 1.350,85'."""
+    if isinstance(v, str):
+        s = v.replace("R$", "").replace(" ", "").strip()
+        if "," in s:
+            s = s.replace(".", "").replace(",", ".")
+        return pd.to_numeric(s, errors="coerce")
+    return v
+
+
+def normalizar_df(df: pd.DataFrame) -> pd.DataFrame:
+    df = _renomear_colunas(df.dropna(how="all"))
+
+    faltando = [c for c in COLUNAS_OBRIGATORIAS if c not in df.columns]
+    if faltando:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Arquivo inválido: coluna(s) não encontrada(s): {', '.join(faltando)}. "
+                f"Colunas recebidas: {', '.join(str(c) for c in df.columns[:15])}. "
+                "Confira se exportou o relatório financeiro correto do Astrea."
+            ),
+        )
+
+    for col in COLUNAS_PADRAO:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[COLUNAS_PADRAO].copy()
+
+    # Texto: tira espaços sobrando (evita "REC | X " ≠ "REC | X")
+    for col in ("Categoria", "Tipo", "Centro de custo", "Pago para / Recebido de"):
+        df[col] = df[col].apply(lambda x: str(x).strip() if pd.notna(x) else x)
+
+    # Tipo: aceita "Saida" sem acento / caixa diferente
+    tipos = {"entrada": "Entrada", "saida": "Saída"}
+    df["Tipo"] = df["Tipo"].apply(lambda x: tipos.get(_norm(x), x) if pd.notna(x) else x)
+
+    df["Valor"] = pd.to_numeric(df["Valor"].map(_para_numero), errors="coerce")
+    if df["Valor"].notna().sum() == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Arquivo inválido: a coluna de valor está vazia ou não é numérica.",
+        )
+
+    return df.reset_index(drop=True)
+
+
+def _ler_excel(contents: bytes) -> pd.DataFrame:
+    try:
+        return pd.read_excel(io.BytesIO(contents))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Não foi possível ler o arquivo. Verifique se é um .xlsx válido.")
 
 
 class RefreshRequest(BaseModel):
@@ -106,11 +229,27 @@ async def gerar_relatorio(
     provisao: float = Form(0.0),
     current_user: dict = Depends(get_current_user),
 ):
-    if not file.filename.endswith(".xlsx"):
+    if not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Arquivo deve ser .xlsx")
 
     contents = await file.read()
-    df = pd.read_excel(io.BytesIO(contents))
+    try:
+        return _processar_relatorio(contents, provisao)
+    except HTTPException:
+        raise
+    except Exception:
+        # Sem isso, um erro interno sai sem cabeçalhos de CORS e o navegador
+        # mostra só "Failed to fetch". Aqui o erro vai para o log e a tela
+        # recebe uma mensagem legível.
+        logger.exception("Erro ao gerar relatório (arquivo: %s)", file.filename)
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao processar o arquivo. Confira se é o export correto do Astrea e tente novamente.",
+        )
+
+
+def _processar_relatorio(contents: bytes, provisao: float):
+    df = normalizar_df(_ler_excel(contents))
 
     conhecidas_norm = {c.strip().lower() for c in get_todas_categorias_conhecidas()}
     cats_ignoradas = sorted(
