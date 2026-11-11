@@ -228,21 +228,22 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     ws_desp.set_column(1, 1, 40)
     ws_desp.set_column(2, 2, 50)
     ws_desp.set_column(3, 3, 28)
-    ws_desp.set_column(4, 4, 18)
+    ws_desp.set_column(4, 4, 22)
+    ws_desp.set_column(5, 5, 18)
 
     titulo_fmt3 = _f(workbook, bold=True, font_size=13, font_color=BRANCO,
                      bg_color=ROXO, align="center", valign="vcenter")
     ws_desp.set_row(0, 28)
-    ws_desp.merge_range(0, 0, 0, 4, titulo_aba, titulo_fmt3)
+    ws_desp.merge_range(0, 0, 0, 5, titulo_aba, titulo_fmt3)
     ws_desp.set_row(1, 6)
 
-    for c, h in enumerate(["DATA", "PAGO PARA", "DESCRIÇÃO", "CLASSIFICAÇÃO", "VALORES"]):
+    for c, h in enumerate(["DATA", "PAGO PARA", "DESCRIÇÃO", "CLASSIFICAÇÃO", "CENTRO DE CUSTO", "VALORES"]):
         ws_desp.write(2, c, h, hdr)
     ws_desp.set_row(2, 22)
 
     n_desp = len(despesas_detalhadas)
     if n_desp > 0:
-        ws_desp.add_table(2, 0, 2 + n_desp, 4, {
+        ws_desp.add_table(2, 0, 2 + n_desp, 5, {
             "name": "TabelaDespesas",
             "style": "Table Style Light 6",
             "columns": [
@@ -250,6 +251,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
                 {"header": "PAGO PARA"},
                 {"header": "DESCRIÇÃO"},
                 {"header": "CLASSIFICAÇÃO"},
+                {"header": "CENTRO DE CUSTO"},
                 {"header": "VALORES"},
             ]
         })
@@ -268,10 +270,10 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
             tv = _f(workbook, bold=True, bg_color=VERMELHO_BG, font_color=VERMELHO,
                     num_format=MOEDA, align="right",
                     top=1, top_color=VERMELHO, bottom=2, bottom_color=VERMELHO)
-            for c in range(5):
+            for c in range(6):
                 ws_desp.write(r, c, "", tt)
             ws_desp.write(r, 2, desc, tt)
-            ws_desp.write(r, 4, val, tv)
+            ws_desp.write(r, 5, val, tv)
         else:
             tf = _f(workbook, bg_color=bg_z)
             vf = _f(workbook, bg_color=bg_z, font_color=VERMELHO, num_format=MOEDA)
@@ -279,7 +281,8 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
             ws_desp.write(r, 1, row_data["PAGO PARA"] or "", tf)
             ws_desp.write(r, 2, desc, tf)
             ws_desp.write(r, 3, str(row_data["CLASSIFICAÇÃO"]) or "", tf)
-            ws_desp.write(r, 4, val, vf)
+            ws_desp.write(r, 4, str(row_data["CENTRO DE CUSTO"]), tf)
+            ws_desp.write(r, 5, val, vf)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # ABA: Ranking_Clientes

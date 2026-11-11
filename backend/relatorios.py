@@ -154,6 +154,40 @@ def get_todas_categorias_conhecidas():
     return list(set(todas))
 
 
+SEM_CENTRO = "Sem centro de custo"
+CAT_PROVISAO = "Provisão"
+
+
+def _centro_limpo(df):
+    """Centro de custo padronizado, para agrupar e exibir sempre do mesmo jeito.
+
+    - vazio/NaN vira 'Sem centro de custo' (antes essas linhas sumiam do
+      Centro_Custos e os totais não batiam com a aba Despesas nem com o DRE);
+    - espaços sobrando são removidos;
+    - 'tributário' e 'Tributário ' contam como o mesmo centro (vale a primeira
+      grafia que aparece no arquivo).
+    """
+    bruto = df["Centro de custo"].fillna("").astype(str).str.split().str.join(" ")
+    primeira_grafia = {}
+    for nome in bruto:
+        if nome:
+            primeira_grafia.setdefault(nome.casefold(), nome)
+    return bruto.map(lambda n: primeira_grafia[n.casefold()] if n else SEM_CENTRO)
+
+
+def _cats_saida_detalhe(df, cats_custo_direto, cats_despesa_op, cats_imposto):
+    """Categorias de saída que compõem custos + despesas + impostos.
+
+    A provisão (linha criada pelo sistema quando o usuário informa um valor)
+    entra junto: o DRE a desconta do lucro, então ela precisa aparecer nas
+    abas Despesas e Centro_Custos para os três fecharem no mesmo número.
+    """
+    cats = cats_custo_direto + cats_despesa_op + cats_imposto
+    if (df["Categoria"] == CAT_PROVISAO).any():
+        cats = cats + [CAT_PROVISAO]
+    return cats
+
+
 def gerar_relatorios(df, provisao_vinicius=0.0):
 
     # Carrega listas do banco
@@ -304,7 +338,9 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     })
 
     # ── Aba Despesas ──────────────────────────────────────────────────────────
-    CATS_DESPESA_DETALHE = cats_custo_direto + cats_despesa_op + cats_imposto
+    CATS_DESPESA_DETALHE = _cats_saida_detalhe(df, cats_custo_direto, cats_despesa_op, cats_imposto)
+    COLS_DESP = ["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Centro de custo", "Valor"]
+    df_desp = df.assign(**{"Centro de custo": _centro_limpo(df)})
     CATS_LABELS = {}
     for c in cats_custo_direto:
         CATS_LABELS[c] = c.replace("CUS | ", "")
@@ -313,29 +349,31 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     for c in cats_imposto:
         CATS_LABELS[c] = c.replace("IMP | ", "")
     CATS_LABELS["Despesa do cliente"] = "Despesa do Cliente"
+    CATS_LABELS[CAT_PROVISAO] = "Provisão Repasse Ex-Sócio"
 
     blocos_desp = []
     for cat in CATS_DESPESA_DETALHE:
-        bloco = df[
-            (df["Tipo"] == "Saída") & (df["Categoria"] == cat)
-        ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]].copy()
+        bloco = df_desp[
+            (df_desp["Tipo"] == "Saída") & (df_desp["Categoria"] == cat)
+        ][COLS_DESP].copy()
         if bloco.empty:
             continue
         label = CATS_LABELS.get(cat, cat)
         total = pd.DataFrame([{
             "Data": "", "Pago para / Recebido de": "",
             "Descricao": f"TOTAL {label.upper()}",
-            "Categoria": cat, "Valor": bloco["Valor"].sum()
+            "Categoria": cat, "Centro de custo": "", "Valor": bloco["Valor"].sum()
         }])
         blocos_desp.append(bloco)
         blocos_desp.append(total)
 
     despesas_detalhadas = pd.concat(blocos_desp, ignore_index=True) if blocos_desp else pd.DataFrame(
-        columns=["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]
+        columns=COLS_DESP
     )
     despesas_detalhadas = despesas_detalhadas.rename(columns={
         "Data": "DATA", "Pago para / Recebido de": "PAGO PARA",
-        "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
+        "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO",
+        "Centro de custo": "CENTRO DE CUSTO", "Valor": "VALORES"
     })
 
     return (
@@ -376,12 +414,14 @@ def gerar_centro_custos(df):
     cats_imposto    = get_cats_imposto()
     cats_custo      = get_cats_custo_direto()
 
+    df = df.assign(**{"Centro de custo": _centro_limpo(df)})
+
     receita = (
         df[(df["Tipo"] == "Entrada") & (df["Categoria"].isin(cats_receita))]
         .groupby("Centro de custo")["Valor"].sum()
         .rename("RECEITA (R$)")
     )
-    todas_saidas = cats_custo + cats_despesa_op + cats_imposto
+    todas_saidas = _cats_saida_detalhe(df, cats_custo, cats_despesa_op, cats_imposto)
     despesa = (
         df[(df["Tipo"] == "Saída") & (df["Categoria"].isin(todas_saidas))]
         .groupby("Centro de custo")["Valor"].sum()
@@ -389,8 +429,11 @@ def gerar_centro_custos(df):
     )
     centro = pd.concat([receita, despesa], axis=1).fillna(0).reset_index()
     centro = centro.rename(columns={"Centro de custo": "CENTRO DE CUSTO"})
-    centro["RESULTADO (R$)"] = centro["RECEITA (R$)"] + centro["DESPESA (R$)"]
-    centro = centro.sort_values("RECEITA (R$)", ascending=False).reset_index(drop=True)
+    centro["RESULTADO (R$)"] = (centro["RECEITA (R$)"] + centro["DESPESA (R$)"]).round(2)
+    # "Sem centro de custo" sempre por último, para não aparecer como se fosse uma área
+    centro["_sem"] = centro["CENTRO DE CUSTO"] == SEM_CENTRO
+    centro = centro.sort_values(["_sem", "RECEITA (R$)"], ascending=[True, False]) \
+                   .drop(columns="_sem").reset_index(drop=True)
     total = pd.DataFrame([{
         "CENTRO DE CUSTO": "TOTAL",
         "RECEITA (R$)":    centro["RECEITA (R$)"].sum(),

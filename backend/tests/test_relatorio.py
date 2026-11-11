@@ -219,3 +219,71 @@ def test_centro_custos_resultado_correto(df_completo, cats_banco):
     receita_total = centros.loc[centros["CENTRO DE CUSTO"] == "TOTAL", "RECEITA (R$)"].values[0]
     despesa_total = centros.loc[centros["CENTRO DE CUSTO"] == "TOTAL", "DESPESA (R$)"].values[0]
     assert round(total, 2) == round(receita_total + despesa_total, 2)
+
+
+
+# ── Centro de custo: aba Despesas x Centro_Custos x DRE ───────────────────────
+
+def _fechamento(df, cats_banco, provisao=0.0):
+    """Devolve (saídas do DRE, total da aba Despesas, centro de custos TOTAL, lucro do DRE)."""
+    from relatorios import gerar_relatorios, gerar_centro_custos
+    with patch("relatorios._carregar_cats", return_value=cats_banco):
+        dre, *_, desp = gerar_relatorios(df, provisao_vinicius=provisao)
+        cc = gerar_centro_custos(df)
+    v = lambda conta: float(dre.loc[dre["Conta"] == conta, "Valor (R$)"].iloc[0])
+    saidas_dre = v("CUSTOS DIRETOS") + v("DESPESAS OPERACIONAIS") + v("IMPOSTOS")
+    detalhe = desp[~desp["DESCRIÇÃO"].astype(str).str.startswith("TOTAL")]
+    total_cc = cc[cc["CENTRO DE CUSTO"] == "TOTAL"].iloc[0]
+    return round(saidas_dre, 2), round(detalhe["VALORES"].sum(), 2), total_cc, v("LUCRO LÍQUIDO"), desp, cc
+
+
+def test_despesas_tem_coluna_centro_de_custo(df_completo, cats_banco):
+    *_, desp, _cc = _fechamento(df_completo, cats_banco)
+    assert "CENTRO DE CUSTO" in desp.columns
+    linha = desp[desp["DESCRIÇÃO"] == "Aluguel junho"].iloc[0]
+    assert linha["CENTRO DE CUSTO"] == "Administrativo"
+    # linhas de TOTAL não carregam centro de custo
+    totais = desp[desp["DESCRIÇÃO"].astype(str).str.startswith("TOTAL")]
+    assert (totais["CENTRO DE CUSTO"] == "").all()
+
+
+def test_despesas_centro_custos_e_dre_fecham(df_completo, cats_banco):
+    saidas_dre, total_desp, cc, lucro, *_ = _fechamento(df_completo, cats_banco)
+    assert total_desp == saidas_dre
+    assert round(cc["DESPESA (R$)"], 2) == saidas_dre
+    assert round(cc["RESULTADO (R$)"], 2) == round(lucro, 2)
+
+
+def test_linhas_sem_centro_de_custo_nao_somem(df_completo, cats_banco):
+    df = df_completo.copy()
+    df.loc[df["Descricao"] == "Aluguel junho", "Centro de custo"] = None
+    df.loc[df["Descricao"] == "Folha junho", "Centro de custo"] = "  "
+    saidas_dre, total_desp, cc_total, lucro, desp, cc = _fechamento(df, cats_banco)
+    assert round(cc_total["DESPESA (R$)"], 2) == saidas_dre == total_desp
+    assert round(cc_total["RESULTADO (R$)"], 2) == round(lucro, 2)
+    sem = cc[cc["CENTRO DE CUSTO"] == "Sem centro de custo"].iloc[0]
+    assert sem["DESPESA (R$)"] == -8000.0
+    # fica sempre logo antes do TOTAL, nunca misturado com as áreas
+    assert list(cc["CENTRO DE CUSTO"])[-2:] == ["Sem centro de custo", "TOTAL"]
+    assert set(desp.loc[desp["DESCRIÇÃO"].isin(["Aluguel junho", "Folha junho"]), "CENTRO DE CUSTO"]) == {"Sem centro de custo"}
+
+
+def test_centro_de_custo_com_grafia_diferente_agrupa_junto(df_completo, cats_banco):
+    df = df_completo.copy()
+    df.loc[df["Descricao"] == "Aluguel junho", "Centro de custo"] = "administrativo"
+    df.loc[df["Descricao"] == "Folha junho", "Centro de custo"] = "Administrativo "
+    *_, cc = _fechamento(df, cats_banco)
+    nomes = [n for n in cc["CENTRO DE CUSTO"] if n.casefold().startswith("administr")]
+    assert len(nomes) == 1
+
+
+def test_provisao_aparece_em_despesas_e_centro_custos(df_completo, cats_banco):
+    df = pd.concat([df_completo, pd.DataFrame([{
+        "Data": "01/06/2026", "Categoria": "Provisão", "Tipo": "Saída", "Valor": -1000.0,
+        "Pago para / Recebido de": "", "Centro de custo": "", "Descricao": "Provisão Repasse Ex-Sócio",
+    }])], ignore_index=True)
+    saidas_dre, total_desp, cc_total, lucro, desp, cc = _fechamento(df, cats_banco, provisao=1000.0)
+    assert total_desp == saidas_dre
+    assert round(cc_total["DESPESA (R$)"], 2) == saidas_dre
+    assert round(cc_total["RESULTADO (R$)"], 2) == round(lucro, 2)
+    assert "TOTAL PROVISÃO REPASSE EX-SÓCIO" in desp["DESCRIÇÃO"].values
