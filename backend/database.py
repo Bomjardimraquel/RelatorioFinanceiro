@@ -1,10 +1,8 @@
-"""
-database.py — Facior
-Gerencia conexão com PostgreSQL e operações de categorias.
-"""
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+from qualidade import chave_categoria
 
 GRUPOS_VALIDOS = [
     "CATS_RECEITA", "CATS_CUSTO_DIRETO", "CATS_DESPESA_OP",
@@ -80,3 +78,13 @@ def categoria_existe(grupo: str, nome: str) -> bool:
                 (grupo, nome)
             )
             return cur.fetchone() is not None
+
+
+def categoria_semelhante(grupo: str, nome: str):
+    """Devolve a grafia já cadastrada no grupo que só difere em caixa/espaços, ou None."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT nome FROM categorias WHERE grupo = %s", (grupo,))
+            nomes = [r[0] for r in cur.fetchall()]
+    alvo = chave_categoria(nome)
+    return next((n for n in nomes if chave_categoria(n) == alvo), None)

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import unicodedata
+from contextlib import asynccontextmanager
 import bcrypt
 from pathlib import Path
 
@@ -17,23 +18,33 @@ from auth import (
     authenticate_user, create_access_token, create_refresh_token,
     decode_token, get_current_user, load_users, USERS_FILE
 )
-from relatorios import gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos, get_todas_categorias_conhecidas
+from relatorios import (
+    gerar_relatorios, gerar_ranking_clientes, gerar_centro_custos,
+    get_categorias_por_grupo, CATEGORIAS_EXTRAS,
+)
+from qualidade import (
+    analisar_qualidade, canonizar_categorias, categorias_nao_reconhecidas,
+    sugerir_cadastro,
+)
 from database import (
     init_db,
     load_categorias as db_load_categorias,
     add_categoria as db_add_categoria,
     delete_categoria as db_delete_categoria,
     categoria_existe,
+    categoria_semelhante,
 )
 from estilos import aplicar_estilos
 
 logger = logging.getLogger("facior")
 
-app = FastAPI(title="Relatório Financeiro API")
-
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
+    yield
+
+
+app = FastAPI(title="Relatório Financeiro API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -251,14 +262,29 @@ async def gerar_relatorio(
 def _processar_relatorio(contents: bytes, provisao: float):
     df = normalizar_df(_ler_excel(contents))
 
-    conhecidas_norm = {c.strip().lower() for c in get_todas_categorias_conhecidas()}
-    cats_ignoradas = sorted(
-        c for c in df["Categoria"].dropna().unique()
-        if c.strip().lower() not in conhecidas_norm
-    )
+    cats_grupos = get_categorias_por_grupo()
+    cadastradas = [n for nomes in cats_grupos.values() for n in nomes] + list(CATEGORIAS_EXTRAS)
+    if not any(cats_grupos.values()):
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhuma categoria cadastrada. Cadastre as categorias na aba Categorias antes de gerar o relatório.",
+        )
+
+    # Usa a grafia cadastrada quando o arquivo só difere em caixa/espaços
+    df, grafia_ajustada = canonizar_categorias(df, cadastradas)
+    cats_ignoradas = categorias_nao_reconhecidas(df, cadastradas)
+    sugestoes = {c: sugerir_cadastro(c, cats_grupos) for c in cats_ignoradas}
     valor_ignorado = float(round(
         df[df["Categoria"].isin(cats_ignoradas)]["Valor"].abs().sum(), 2
     )) if cats_ignoradas else 0.0
+
+    cats_operacionais = [
+        c for g in ("CATS_RECEITA", "CATS_CUSTO_DIRETO", "CATS_DESPESA_OP", "CATS_IMPOSTO")
+        for c in cats_grupos.get(g, [])
+    ]
+    avisos = analisar_qualidade(df, cats_operacionais)
+    avisos["grafiaAjustada"] = grafia_ajustada
+
     try:
         primeira_data = pd.to_datetime(df["Data"].dropna().iloc[0], dayfirst=True)
         mes_nome      = MESES[primeira_data.month]
@@ -379,6 +405,8 @@ def _processar_relatorio(contents: bytes, provisao: float):
         "despesas":           despesas_grafico,
         "categoriasIgnoradas": cats_ignoradas,
         "valorIgnorado":      valor_ignorado,
+        "sugestoes":          sugestoes,
+        "avisos":             avisos,
     }, ensure_ascii=True)
 
     headers = {
@@ -405,6 +433,13 @@ def add_categoria(body: CategoriaRequest, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=400, detail=f"Grupo '{body.grupo}' não existe")
     if categoria_existe(body.grupo, body.nome):
         raise HTTPException(status_code=400, detail="Categoria já existe neste grupo")
+    parecida = categoria_semelhante(body.grupo, body.nome)
+    if parecida:
+        raise HTTPException(
+            status_code=400,
+            detail=f'Já existe neste grupo com outra grafia: "{parecida}". '
+                   "Apague a antiga antes de cadastrar a nova.",
+        )
     cats = db_add_categoria(body.nome, body.grupo)
     return {"message": "Categoria adicionada", "categorias": cats}
 

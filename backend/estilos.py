@@ -1,9 +1,3 @@
-"""
-estilos.py — Facior Financial Reports
-Paleta: #0C2340 (azul escuro) | #185FA5 (azul médio) | #C9A84C (dourado)
-        #3B6D11 (verde) | #A32D2D (vermelho) | #F7F5F0 (off-white)
-"""
-
 # ── Paleta ────────────────────────────────────────────────────────────────────
 AZUL_ESCURO  = "#0C2340"
 AZUL_MEDIO   = "#185FA5"
@@ -163,24 +157,25 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
     ws_rec.set_column(1, 1, 40)
     ws_rec.set_column(2, 2, 50)
     ws_rec.set_column(3, 3, 28)
-    ws_rec.set_column(4, 4, 18)
+    ws_rec.set_column(4, 4, 22)
+    ws_rec.set_column(5, 5, 18)
 
     titulo_fmt2 = _f(workbook, bold=True, font_size=13, font_color=BRANCO,
                      bg_color=AZUL_MEDIO, align="center", valign="vcenter")
     ws_rec.set_row(0, 28)
-    ws_rec.merge_range(0, 0, 0, 4, titulo_aba, titulo_fmt2)
+    ws_rec.merge_range(0, 0, 0, 5, titulo_aba, titulo_fmt2)
     ws_rec.set_row(1, 6)
 
     hdr = _f(workbook, bold=True, font_size=10, font_color=BRANCO, bg_color=AZUL_ESCURO,
              align="center", valign="vcenter", border=1, border_color=AZUL_ESCURO)
-    for c, h in enumerate(["DATA", "CLIENTE", "DESCRIÇÃO", "CLASSIFICAÇÃO", "VALORES"]):
+    for c, h in enumerate(["DATA", "CLIENTE", "DESCRIÇÃO", "CLASSIFICAÇÃO", "CENTRO DE CUSTO", "VALORES"]):
         ws_rec.write(2, c, h, hdr)
     ws_rec.set_row(2, 22)
 
     # Tabela com filtro
     n_rec = len(conciliacao)
     if n_rec > 0:
-        ws_rec.add_table(2, 0, 2 + n_rec, 4, {
+        ws_rec.add_table(2, 0, 2 + n_rec, 5, {
             "name": "TabelaReceitas",
             "style": "Table Style Light 2",
             "columns": [
@@ -188,6 +183,7 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
                 {"header": "CLIENTE"},
                 {"header": "DESCRIÇÃO"},
                 {"header": "CLASSIFICAÇÃO"},
+                {"header": "CENTRO DE CUSTO"},
                 {"header": "VALORES"},
             ]
         })
@@ -206,10 +202,10 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
             tv = _f(workbook, bold=True, bg_color=DOURADO_BG, font_color=AZUL_ESCURO,
                     num_format=MOEDA, align="right",
                     top=1, top_color=DOURADO, bottom=2, bottom_color=DOURADO)
-            for c in range(5):
+            for c in range(6):
                 ws_rec.write(r, c, "", tt)
             ws_rec.write(r, 2, desc, tt)
-            ws_rec.write(r, 4, val, tv)
+            ws_rec.write(r, 5, val, tv)
         else:
             tf = _f(workbook, bg_color=bg_z)
             vf = _f(workbook, bg_color=bg_z, font_color=AZUL_MEDIO, num_format=MOEDA)
@@ -217,7 +213,8 @@ def aplicar_estilos(workbook, writer, dre_operacional, receita_financeira, socie
             ws_rec.write(r, 1, row_data["CLIENTE"] or "", tf)
             ws_rec.write(r, 2, desc, tf)
             ws_rec.write(r, 3, row_data["CLASSIFICAÇÃO"] or "", tf)
-            ws_rec.write(r, 4, val, vf)
+            ws_rec.write(r, 4, str(row_data["CENTRO DE CUSTO"]), tf)
+            ws_rec.write(r, 5, val, vf)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # ABA: Despesas

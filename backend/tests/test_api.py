@@ -20,6 +20,21 @@ USUARIO_TESTE = {
 
 USERS_MOCK = {"teste": USUARIO_TESTE}
 
+# Categorias "cadastradas no banco" para todos os testes de API
+CATS_TESTE = {
+    "CATS_RECEITA": ["REC | Honorário Partido", "REC | Honorário Avulso"],
+    "CATS_DESPESA_OP": ["DES | Folha Pagamento", "DES | Pró-Labore", "DES | Aluguel"],
+    "CATS_SOCIETARIO": ["SOC | Distribuição Lucros"],
+}
+
+
+@pytest.fixture(autouse=True)
+def _categorias_cadastradas():
+    """O banco é mockado: todo teste enxerga as mesmas categorias cadastradas.
+    (Sem categorias, /relatorio responde 400 em vez de gerar um relatório zerado.)"""
+    with patch("relatorios._carregar_cats", return_value=CATS_TESTE):
+        yield
+
 
 @pytest.fixture
 def client():
@@ -185,7 +200,7 @@ def test_get_categorias(client, headers):
 
 def test_add_categoria(client, headers):
     cats_resultado = {"CATS_RECEITA": ["REC | Nova Categoria"], "CATS_DESPESA_OP": []}
-    with patch("main.categoria_existe", return_value=False), \
+    with patch("main.categoria_existe", return_value=False), patch("main.categoria_semelhante", return_value=None), \
          patch("main.db_add_categoria", return_value=cats_resultado):
         resp = client.post(
             "/categorias",
@@ -231,12 +246,6 @@ def test_delete_categoria_sem_autenticacao(client):
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-CATS_TESTE = {
-    "CATS_RECEITA": ["REC | Honorário Partido"],
-    "CATS_DESPESA_OP": ["DES | Folha Pagamento", "DES | Pró-Labore"],
-    "CATS_SOCIETARIO": ["SOC | Distribuição Lucros"],
-}
-
 # mesmos lançamentos nos dois layouts: (data, descrição, cliente, categoria, centro, valor, tipo)
 LANCAMENTOS = [
     ("03/09/2026", "ASSESSORIA MENSAL", "SALUTE LTDA", "REC | Honorário Partido", "Tributário", 1350.85, "Entrada"),
@@ -274,15 +283,12 @@ def _layout_novo():
     } for d, desc, cli, cat, cc, v, t in LANCAMENTOS])
 
 
-def _post_relatorio(client, headers, df):
-    with patch("relatorios._carregar_cats", return_value=CATS_TESTE), \
-         patch("main.get_todas_categorias_conhecidas",
-               return_value=[c for cs in CATS_TESTE.values() for c in cs]):
-        return client.post(
-            "/relatorio", headers=headers,
-            files={"file": ("relatorio.xlsx", _xlsx(df), XLSX_MIME)},
-            data={"provisao": "0"},
-        )
+def _post_relatorio(client, headers, df, provisao="0"):
+    return client.post(
+        "/relatorio", headers=headers,
+        files={"file": ("relatorio.xlsx", _xlsx(df), XLSX_MIME)},
+        data={"provisao": provisao},
+    )
 
 
 def test_relatorio_layout_novo_astrea(client, headers):
@@ -331,3 +337,90 @@ def test_relatorio_erro_interno_retorna_500_com_mensagem(client, headers):
         resp = _post_relatorio(client, headers, _layout_novo())
     assert resp.status_code == 500
     assert "Erro ao processar" in resp.json()["detail"]
+
+# ── Relatório: avisos de qualidade, grafia e sugestões ────────────────────────
+
+def _dados(resp):
+    assert resp.status_code == 200, resp.text
+    return json.loads(resp.headers["X-Dados"])
+
+
+def test_relatorio_grafia_diferente_nao_zera_a_categoria(client, headers):
+    """'rec | honorário  partido' (caixa/espaços) conta como a categoria cadastrada."""
+    df = _layout_novo()
+    df["CATEGORIA"] = df["CATEGORIA"].replace({"REC | Honorário Partido": "rec | honorário  partido"})
+    dados = _dados(_post_relatorio(client, headers, df))
+    assert dados["receitaBruta"] == 1350.85
+    assert dados["categoriasIgnoradas"] == []
+    assert dados["avisos"]["grafiaAjustada"] == [
+        {"arquivo": "rec | honorário  partido", "cadastrada": "REC | Honorário Partido"}
+    ]
+
+
+def test_relatorio_arquivo_limpo_sem_avisos(client, headers):
+    avisos = _dados(_post_relatorio(client, headers, _layout_novo()))["avisos"]
+    assert avisos["semCategoria"]["qtd"] == 0
+    assert avisos["semCentroCusto"]["qtd"] == 0
+    assert avisos["valorInvalido"]["qtd"] == 0
+    assert avisos["possiveisDuplicadas"]["grupos"] == 0
+    assert avisos["grafiaAjustada"] == []
+
+
+def test_relatorio_avisa_linhas_sem_centro_de_custo(client, headers):
+    df = _layout_novo()
+    df.loc[df["DESCRIÇÃO"] == "SALÁRIO", "CENTRO DE CUSTO"] = None
+    avisos = _dados(_post_relatorio(client, headers, df))["avisos"]
+    assert avisos["semCentroCusto"] == {"qtd": 1, "valor": 4000.0}
+
+
+def test_relatorio_avisa_linhas_sem_categoria(client, headers):
+    df = _layout_novo()
+    df.loc[df["DESCRIÇÃO"] == "PRO LABORE", "CATEGORIA"] = None
+    dados = _dados(_post_relatorio(client, headers, df))
+    assert dados["avisos"]["semCategoria"] == {"qtd": 1, "valor": 2500.0}
+    # linha sem categoria não vira "categoria não reconhecida" de nome vazio
+    assert dados["categoriasIgnoradas"] == []
+
+
+def test_relatorio_avisa_possiveis_duplicadas(client, headers):
+    df = _layout_novo()
+    df = pd.concat([df, df[df["DESCRIÇÃO"] == "SALÁRIO"]], ignore_index=True)
+    d = _dados(_post_relatorio(client, headers, df))["avisos"]["possiveisDuplicadas"]
+    assert d["grupos"] == 1 and d["qtd"] == 2
+    assert d["exemplos"][0]["descricao"] == "SALÁRIO" and d["exemplos"][0]["vezes"] == 2
+
+
+def test_relatorio_sugere_onde_cadastrar_categoria_desconhecida(client, headers):
+    df = _layout_novo()
+    df.loc[df["DESCRIÇÃO"] == "SALÁRIO", "CATEGORIA"] = "DES | Folha Pagamentó"   # parecida com cadastrada
+    df.loc[df["DESCRIÇÃO"] == "PRO LABORE", "CATEGORIA"] = "DES | Plano de saúde"   # nova, prefixo DES
+    dados = _dados(_post_relatorio(client, headers, df))
+    assert dados["categoriasIgnoradas"] == ["DES | Folha Pagamentó", "DES | Plano de saúde"]
+    assert dados["sugestoes"]["DES | Folha Pagamentó"] == {
+        "parecidaCom": "DES | Folha Pagamento", "grupoSugerido": "CATS_DESPESA_OP"}
+    assert dados["sugestoes"]["DES | Plano de saúde"] == {
+        "parecidaCom": None, "grupoSugerido": "CATS_DESPESA_OP"}
+    assert dados["valorIgnorado"] == 6500.0
+
+
+def test_relatorio_sem_categorias_cadastradas_retorna_400(client, headers):
+    with patch("relatorios._carregar_cats", return_value={}):
+        resp = _post_relatorio(client, headers, _layout_novo())
+    assert resp.status_code == 400
+    assert "Nenhuma categoria cadastrada" in resp.json()["detail"]
+
+
+# ── Categorias: grafia repetida ───────────────────────────────────────────────
+
+def test_add_categoria_com_grafia_repetida_retorna_400(client, headers):
+    with patch("main.categoria_existe", return_value=False), \
+         patch("main.categoria_semelhante", return_value="REC | Resultado de Investimento"), \
+         patch("main.db_add_categoria") as add:
+        resp = client.post(
+            "/categorias", headers=headers,
+            json={"nome": "REC | Resultado de investimento", "grupo": "CATS_RECEITA_FIN"},
+        )
+    assert resp.status_code == 400
+    assert "outra grafia" in resp.json()["detail"]
+    assert "REC | Resultado de Investimento" in resp.json()["detail"]
+    add.assert_not_called()

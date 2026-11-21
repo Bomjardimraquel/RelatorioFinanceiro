@@ -287,3 +287,32 @@ def test_provisao_aparece_em_despesas_e_centro_custos(df_completo, cats_banco):
     assert round(cc_total["DESPESA (R$)"], 2) == saidas_dre
     assert round(cc_total["RESULTADO (R$)"], 2) == round(lucro, 2)
     assert "TOTAL PROVISÃO REPASSE EX-SÓCIO" in desp["DESCRIÇÃO"].values
+
+# ── Aba Receitas com centro de custo ──────────────────────────────────────────
+
+def test_receitas_tem_coluna_centro_de_custo(df_completo, cats_banco):
+    from relatorios import gerar_relatorios
+    with patch("relatorios._carregar_cats", return_value=cats_banco):
+        _dre, _rf, _soc, _emp, _trans, receitas, _desp = gerar_relatorios(df_completo)
+    assert "CENTRO DE CUSTO" in receitas.columns
+    linha = receitas[receitas["DESCRIÇÃO"] == "Honorário Avulso"].iloc[0]
+    assert linha["CENTRO DE CUSTO"] == "Civil"
+    totais = receitas[receitas["DESCRIÇÃO"].astype(str).str.startswith("TOTAL")]
+    assert (totais["CENTRO DE CUSTO"] == "").all()
+
+
+def test_receitas_sem_centro_aparece_como_sem_centro_de_custo(df_completo, cats_banco):
+    from relatorios import gerar_relatorios
+    df = df_completo.copy()
+    df.loc[df["Descricao"] == "Honorário Avulso", "Centro de custo"] = None
+    with patch("relatorios._carregar_cats", return_value=cats_banco):
+        receitas = gerar_relatorios(df)[5]
+    assert receitas[receitas["DESCRIÇÃO"] == "Honorário Avulso"].iloc[0]["CENTRO DE CUSTO"] == "Sem centro de custo"
+
+
+def test_sem_categorias_cadastradas_nao_usa_listas_fixas(df_completo):
+    """Grupo sem nada cadastrado fica vazio — não volta para uma lista fixa antiga."""
+    from relatorios import get_cats_despesa_op, get_cats_receita
+    with patch("relatorios._carregar_cats", return_value={"CATS_RECEITA": ["REC | X"]}):
+        assert get_cats_receita() == ["REC | X"]
+        assert get_cats_despesa_op() == []

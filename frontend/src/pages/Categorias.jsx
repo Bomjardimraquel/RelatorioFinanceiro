@@ -1,16 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getCategorias, addCategoria, deleteCategoria } from "../services/api";
-
-const GRUPOS_LABELS = {
-  CATS_RECEITA:       "Receitas",
-  CATS_CUSTO_DIRETO:  "Custos Diretos",
-  CATS_DESPESA_OP:    "Despesas Operacionais",
-  CATS_IMPOSTO:       "Impostos",
-  CATS_RECEITA_FIN:   "Receita Financeira",
-  CATS_SOCIETARIO:    "Societário",
-  CATS_EMPRESTIMO:    "Empréstimos",
-  CATS_TRANSITORIO:   "Transitórios",
-};
+import { GRUPOS_LABELS } from "../constants/grupos";
 
 export default function Categorias() {
   const [cats, setCats]           = useState({});

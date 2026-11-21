@@ -119,7 +119,6 @@ export const gerarRelatorio = async (file, provisao = 0) => {
   }
 
   const dadosHeader = res.headers.get("X-Dados");
-  console.log("HEADER X-Dados:", dadosHeader);
   const dados = dadosHeader ? JSON.parse(dadosHeader) : {};
   const blob = await res.blob();
 

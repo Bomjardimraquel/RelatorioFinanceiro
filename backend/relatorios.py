@@ -1,98 +1,14 @@
-import json
+import logging
+
 import pandas as pd
-from pathlib import Path
 from funcoes import soma, soma_entradas
 
-# ── Categorias base (hardcoded) ───────────────────────────────────────────────
-
-CATS_RECEITA = [
-    "REC | Honorário Avulso",
-    "REC | Honorário Contratado",
-    "REC | Honorário Partido",
-    "REC | Honorário Sucumbencial",
-    "REC | Honorário Êxito",
-    "REC | Honorário Compensação/liminar",
-    "REC | Reembolso cliente",
-]
-
-CATS_CUSTO_DIRETO = [
-    "CUS | Parceiro Jurídico",
-    "CUS | Participação contrato",
-    "CUS | Diligencia",
-    "CUS | Participação Vinicius Fraga",
-    "Despesa do cliente",
-]
-
-CATS_DESPESA_OP = [
-    "DES | Aluguel",
-    "DES | Assinaturas Jurídicas",
-    "DES | Bancaria",
-    "DES | Certificado digital",
-    "DES | Condomínio",
-    "DES | Consultoria",
-    "DES | Contabilidade",
-    "DES | Copa/Cozinha",
-    "DES | Cursos/Especializações",
-    "DES | Estagiários",
-    "DES | Energia",
-    "DES | Folha Pagamento",
-    "DES | Hospedagem/Site",
-    "DES | Internet",
-    "DES | Limpeza",
-    "DES | Manutenção",
-    "DES | Marketing",
-    "DES | Material Escritório",
-    "DES | Não Classificado",
-    "DES | OAB/Anuidade",
-    "DES | Pró-Labore",
-    "DES | Segurança",
-    "DES | Software Jurídico",
-    "DES | Telefonia",
-    "DES | Token/OAB",
-    "DES | Tráfego pago",
-    "DES | Uber/Combustível",
-    "DES | Despesa Bancária",
-    "DES | Bancária",
-]
-
-CATS_RESULTADO_FIN = []
-
-CATS_IMPOSTO = [
-    "IMP | Simples Nacional",
-    "IMP | IPTU",
-    "IMP | INSS",
-]
-
-CATS_RECEITA_FIN = [
-    "REC | Receita Financeira",
-    "REC | Venda ativo",
-]
-
-CATS_SOCIETARIO = [
-    "SOC | Distribuição Lucros",
-    "SOC | Aporte Sócio",
-]
-
-CATS_EMPRESTIMO = [
-    "FIN | Empréstimo Bancário",
-    "FIN | Empréstimo bancário",
-    "FIN | Pagamento Empréstimo",
-    "FIN | Consórcio Principal",
-    "FIN | Juros Bancários",
-    "FIN | Juros bancários",
-]
-
-CATS_TRANSITORIO = [
-    "REP | Valores transitórios",
-    "REP | Repasse Cliente",
-]
+logger = logging.getLogger("facior")
 
 # ── Categorias via banco de dados ─────────────────────────────────────────────
 
-CATS_FILE = Path(__file__).parent / "categorias.json"
-
 def _carregar_cats():
-    """Carrega todas as categorias do banco. Fallback para hardcoded."""
+    """Carrega todas as categorias do banco. Sem banco, devolve grupos vazios."""
     try:
         import os
         if os.environ.get("DATABASE_URL"):
@@ -107,7 +23,9 @@ def _carregar_cats():
                 result.setdefault(grupo, []).append(nome)
             return result
     except Exception:
-        pass
+        # Antes isso era silencioso: com o banco fora do ar o relatório saía zerado
+        # sem nenhum aviso. Agora fica registrado no log do Railway.
+        logger.exception("Não foi possível carregar as categorias do banco")
     # Fallback: listas vazias (sem banco disponível)
     return {
         "CATS_RECEITA":      [],
@@ -121,28 +39,38 @@ def _carregar_cats():
     }
 
 def get_cats_receita():
-    return _carregar_cats().get("CATS_RECEITA", CATS_RECEITA)
+    return _carregar_cats().get("CATS_RECEITA", [])
 
 def get_cats_custo_direto():
-    return _carregar_cats().get("CATS_CUSTO_DIRETO", CATS_CUSTO_DIRETO)
+    return _carregar_cats().get("CATS_CUSTO_DIRETO", [])
 
 def get_cats_despesa_op():
-    return _carregar_cats().get("CATS_DESPESA_OP", CATS_DESPESA_OP)
+    return _carregar_cats().get("CATS_DESPESA_OP", [])
 
 def get_cats_imposto():
-    return _carregar_cats().get("CATS_IMPOSTO", CATS_IMPOSTO)
+    return _carregar_cats().get("CATS_IMPOSTO", [])
 
 def get_cats_receita_fin():
-    return _carregar_cats().get("CATS_RECEITA_FIN", CATS_RECEITA_FIN)
+    return _carregar_cats().get("CATS_RECEITA_FIN", [])
 
 def get_cats_societario():
-    return _carregar_cats().get("CATS_SOCIETARIO", CATS_SOCIETARIO)
+    return _carregar_cats().get("CATS_SOCIETARIO", [])
 
 def get_cats_emprestimo():
-    return _carregar_cats().get("CATS_EMPRESTIMO", CATS_EMPRESTIMO)
+    return _carregar_cats().get("CATS_EMPRESTIMO", [])
 
 def get_cats_transitorio():
-    return _carregar_cats().get("CATS_TRANSITORIO", CATS_TRANSITORIO)
+    return _carregar_cats().get("CATS_TRANSITORIO", [])
+
+
+# Categorias que o Astrea gera e que o sistema reconhece sem cadastro
+# (não entram em nenhum grupo do DRE).
+CATEGORIAS_EXTRAS = ["Transferência", "Despesa do cliente", "Saldo inicial"]
+
+
+def get_categorias_por_grupo():
+    """Categorias cadastradas, agrupadas — numa única consulta ao banco."""
+    return _carregar_cats()
 
 
 def get_todas_categorias_conhecidas():
@@ -150,7 +78,7 @@ def get_todas_categorias_conhecidas():
     todas = []
     for lista in cats.values():
         todas.extend(lista)
-    todas += ["Transferência", "Despesa do cliente", "Saldo inicial"]
+    todas += CATEGORIAS_EXTRAS
     return list(set(todas))
 
 
@@ -314,27 +242,30 @@ def gerar_relatorios(df, provisao_vinicius=0.0):
     })
 
     # ── Aba Receitas — completamente dinâmico ────────────────────────────────
+    COLS_REC = ["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Centro de custo", "Valor"]
+    df_rec = df.assign(**{"Centro de custo": _centro_limpo(df)})
     blocos = []
     for cat in cats_receita:
         label = _label(cat)
-        bloco = df[
-            (df["Tipo"] == "Entrada") & (df["Categoria"] == cat)
-        ][["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]].copy()
+        bloco = df_rec[
+            (df_rec["Tipo"] == "Entrada") & (df_rec["Categoria"] == cat)
+        ][COLS_REC].copy()
         if bloco.empty:
             continue
         total = pd.DataFrame([{
             "Data": "", "Pago para / Recebido de": "",
             "Descricao": f"TOTAL {label.upper()}",
-            "Categoria": cat, "Valor": bloco["Valor"].sum()
+            "Categoria": cat, "Centro de custo": "", "Valor": bloco["Valor"].sum()
         }])
         blocos.append(bloco)
         blocos.append(total)
     conciliacao = pd.concat(blocos, ignore_index=True) if blocos else pd.DataFrame(
-        columns=["Data", "Pago para / Recebido de", "Descricao", "Categoria", "Valor"]
+        columns=COLS_REC
     )
     conciliacao = conciliacao.rename(columns={
         "Data": "DATA", "Pago para / Recebido de": "CLIENTE",
-        "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO", "Valor": "VALORES"
+        "Descricao": "DESCRIÇÃO", "Categoria": "CLASSIFICAÇÃO",
+        "Centro de custo": "CENTRO DE CUSTO", "Valor": "VALORES"
     })
 
     # ── Aba Despesas ──────────────────────────────────────────────────────────

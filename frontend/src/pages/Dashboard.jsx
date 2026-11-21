@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { gerarRelatorio } from "../services/api";
+import { AvisoCategorias, AvisosQualidade } from "../components/AvisosRelatorio";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -169,16 +170,23 @@ export default function Dashboard() {
               <Card label="Despesas operacionais" value={formatBRL(Math.abs(dados.totalDespesas))} color="#A32D2D" />
               <Card label="Lucro líquido"         value={formatBRL(dados.lucroLiquido)}            color={dados.lucroLiquido >= 0 ? "#3B6D11" : "#A32D2D"} />
             </div>
-            {dados.categoriasIgnoradas?.length > 0 && (
-              <div style={s.aviso}>
-                <i className="ti ti-alert-triangle" style={{fontSize:16, flexShrink:0}} />
-                <div>
-                  <div style={s.avisoTitulo}>Categorias não reconhecidas — não incluídas no relatório</div>
-                  <div style={s.avisoLista}>{dados.categoriasIgnoradas.join(" · ")}</div>
-                  <div style={s.avisoValor}>Total ignorado: {formatBRL(dados.valorIgnorado)}</div>
-                </div>
+            {error && (
+              <div style={s.error}>
+                <i className="ti ti-alert-circle" style={{fontSize:15, flexShrink:0}} />
+                {error}
               </div>
             )}
+            {dados.categoriasIgnoradas?.length > 0 && (
+              <AvisoCategorias
+                key={dados.categoriasIgnoradas.join("|")}
+                categorias={dados.categoriasIgnoradas}
+                sugestoes={dados.sugestoes}
+                valorIgnorado={dados.valorIgnorado}
+                onRegerar={handleGerar}
+                regerando={loading}
+              />
+            )}
+            <AvisosQualidade avisos={dados.avisos} />
           </>
         )}
 
@@ -288,8 +296,4 @@ const s = {
   grid2: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 },
   chartCard: { background:"#fff", border:"0.5px solid #E0DEDD", borderRadius:12, padding:"18px 20px" },
   chartTitle: { fontSize:13, fontWeight:600, color:"#0C2340", marginBottom:12 },
-  aviso: { background:"#FEF9E7", border:"1px solid #C9A84C", borderRadius:10, padding:"13px 16px", display:"flex", gap:12, alignItems:"flex-start", color:"#7B5800" },
-  avisoTitulo: { fontSize:13, fontWeight:600, marginBottom:4 },
-  avisoLista: { fontSize:12.5, color:"#7B5800", marginBottom:4 },
-  avisoValor: { fontSize:12, fontWeight:600, color:"#A32D2D" },
 };
